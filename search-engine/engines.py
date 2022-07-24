@@ -11,13 +11,6 @@ import sessions
 StrMap = dict[str, str]
 
 
-class Result(NamedTuple):
-    """Single result returned by a search."""
-
-    title: str
-    url: str
-
-
 class Engine:
     """Base class for a search engine."""
 
