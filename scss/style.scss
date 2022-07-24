@@ -1,0 +1,126 @@
+@import "normalize.scss";
+
+@mixin colors($bg, $fn) {
+    :root {
+        --bg: #{$bg};
+        --muted: #{call($fn, $bg, 15)};
+        --dark: #{call($fn, $bg, 30)};
+        --half: #{call($fn, $bg, 43)};
+        --fg: #{call($fn, $bg, 85)};
+    }
+}
+
+@include colors(#fbfbfb, get-function(darken));
+
+html {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: arial, sans-serif;
+}
+
+body {
+    box-sizing: border-box;
+    margin: 0 auto;
+    max-width: 40em;
+    padding: 0 1em;
+    width: 100%;
+}
+
+.error {
+    $bg: #d20313;
+    $line-spacing: 0.25em;
+    $spacing: 1em;
+
+    background: $bg;
+    border-radius: $spacing;
+    box-sizing: border-box;
+    color: lighten($bg, 50);
+    margin: 1em 0;
+    padding: $spacing - $line-spacing $spacing;
+
+    & > * {
+        margin: $line-spacing 0;
+    }
+}
+
+.logo {
+    display: block;
+    height: auto;
+    margin: 2em auto;
+    width: 60%;
+}
+
+.search {
+    $border: var(--dark);
+    $radius: 1.5em;
+
+    border-radius: $radius;
+    border: 1px solid $border;
+    display: flex;
+    height: 3em;
+
+    &:focus-within {
+        box-shadow: 0 0 0.4em var(--muted);
+    }
+
+    & > [type="search"],
+    & > [type="reset"],
+    & > [type="submit"] {
+        background: none;
+        border: none;
+        color: var(--fg);
+    }
+
+    & > [type="search"] {
+        width: 100%;
+        padding: 0 $radius;
+
+        &:focus {
+            outline: none;
+        }
+    }
+
+    & > [type="reset"],
+    & > [type="submit"] {
+        cursor: pointer;
+    }
+
+    & > [type="reset"] {
+        font-size: 2em;
+    }
+
+    & > [type="submit"] {
+        border-left: 1px solid $border;
+        border-radius: 0 $radius $radius 0;
+        padding: 0 $radius;
+        transition: background 0.1s, color 0.1s;
+
+        &:hover,
+        &:focus {
+            $bg: #678fff;
+
+            background: $bg;
+            color: lighten($bg, 30);
+        }
+    }
+
+    & > [type="search"]:placeholder-shown + [type="reset"] {
+        display: none;
+    }
+}
+
+@media (prefers-color-scheme: dark) {
+    @include colors(#1a1a1a, get-function(lighten));
+
+    .logo {
+        filter: invert(100%) brightness(85%);
+    }
+
+    .search {
+        background: var(--muted);
+
+        &:focus-within {
+            box-shadow: 0 0 0.4em var(--half);
+        }
+    }
+}

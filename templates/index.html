@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+
+{% block content %}
+<img class="logo" src="{{ url_for("static", filename="logo.png") }}" alt="Suche" width="697" height="242">
+<form action="{{ url_for("search") }}" class="search">
+    <input type="search" name="q" placeholder="Durchsuche das Web..." required>
+    <input type="reset" value="&times;">
+    <input type="submit" value="Suchen">
+</form>
+{% endblock %}

@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+
+{% block content %}
+<form action="{{ url_for("search") }}" class="search">
+    <input type="search" name="q" placeholder="Durchsuche das Web..." value="{{ query }}" required>
+    <input type="reset" value="&times;" onclick="event.preventDefault();document.getElementsByName('q')[0].value = ''">
+    <input type="submit" value="Suchen">
+</form>
+<ul>
+    {% for result in results %}
+    <li><a href="{{ result.url }}">{{ result.title }}</a></li>
+    {% endfor %}
+</ul>
+{% endblock %}

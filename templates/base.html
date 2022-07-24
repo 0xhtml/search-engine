@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="de">
+    <head>
+        {% block head %}
+        <title>Websuche</title>
+        <link rel="stylesheet" href="{{ url_for("static", filename="style.css") }}">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="description" content="Eine (Meta-)Suchmaschine.">
+        {% endblock %}
+    </head>
+    <body>
+        {% if error_message is defined %}
+        <div class="error">
+            <h4>Fehler</h4>
+            <p>{{ error_message }}</p>
+        </div>
+        {% endif %}
+
+        {% block content %}
+        {% endblock %}
+    </body>
+</html>
