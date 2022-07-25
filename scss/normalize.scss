@@ -27,9 +27,9 @@ h1 {
 //   font-size: 1em;
 // }
 
-// a {
-//   background-color: transparent;
-// }
+a {
+    background-color: transparent;
+}
 
 // abbr[title] {
 //   border-bottom: none;
@@ -65,9 +65,9 @@ h1 {
 //   top: -0.5em;
 // }
 
-// img {
-//   border-style: none;
-// }
+img {
+    border-style: none;
+}
 
 /*button,*/ input/*, optgroup, select, textarea*/ {
     font-family: inherit;
@@ -84,7 +84,7 @@ h1 {
 //   text-transform: none;
 // }
 
-/*button, [type="button"], [type="reset"],*/ [type="submit"] {
+/*button, [type="button"],*/ [type="reset"], [type="submit"] {
     -webkit-appearance: button;
 
     &::-moz-focus-inner {
