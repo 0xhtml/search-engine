@@ -12,7 +12,7 @@ application = Flask(__name__)
 
 def error(message: str):
     """Return error page."""
-    return render_template("index.html", error_message=message)
+    return render_template("index.html", title="Error", error_message=message)
 
 
 @application.errorhandler(404)
@@ -29,7 +29,7 @@ def page_not_found(_):
 @application.route("/")
 def index():
     """Return the start page."""
-    return render_template("index.html")
+    return render_template("index.html", title="Suche")
 
 
 @application.route("/search")
@@ -57,4 +57,6 @@ def search():
     results = [engine.search(parsed_query) for engine in lang_engines]
     results = order_results(results, lang)
 
-    return render_template("search.html", query=query, results=results)
+    return render_template(
+        "search.html", title=parsed_query.query, query=query, results=results
+    )
