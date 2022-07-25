@@ -2,7 +2,10 @@
 
 from flask import Flask, make_response, render_template, request
 
-from . import engines, query, results
+from .engines import get_lang_engines
+from .lang import detect_lang
+from .query import parse_query
+from .results import order_results
 
 application = Flask(__name__)
 
@@ -32,25 +35,26 @@ def index():
 @application.route("/search")
 def search():
     """Perform a search and return the search result page."""
-    raw_query = request.args.get("q", None, str)
+    query = request.args.get("q", None, str)
 
-    if raw_query is None:
+    if query is None:
         return error("Wir haben keinen Suchbegriff empfangen können"), 404
 
-    raw_query = raw_query.strip()
+    query = query.strip()
 
-    if len(raw_query) == 0:
+    if len(query) == 0:
         return error("Der Suchbegriff ist leer")
 
-    parsed_query = query.parse_query(raw_query)
+    parsed_query = parse_query(query)
 
-    lang_engines = engines.LANG_MAP.get(
-        parsed_query.lang, engines.LANG_MAP["*"]
-    )
+    if parsed_query.lang is None:
+        lang = detect_lang(parsed_query.query)
+    else:
+        lang = parsed_query.lang
 
-    sorted_results = results.order_results(
-        [engine.search(parsed_query) for engine in lang_engines],
-        parsed_query.lang,
-    )
+    lang_engines = get_lang_engines(lang)
 
-    return render_template("search.html", query=query, results=sorted_results)
+    results = [engine.search(parsed_query) for engine in lang_engines]
+    results = order_results(results, lang)
+
+    return render_template("search.html", query=query, results=results)
