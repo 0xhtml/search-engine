@@ -11,28 +11,28 @@ class Result(NamedTuple):
 
     title: str
     url: str
-
-    def __hash__(self) -> int:
-        """Hash only the url."""
-        return hash(self.url)
-
-    def __eq__(self, other) -> bool:
-        """Compare only the url."""
-        return self.url == other.url
+    text: str
 
 
 def order_results(results: list[list[Result]], lang: str) -> list[Result]:
     """Combine results from all engines and order them."""
     max_result_count = max(len(engine_results) for engine_results in results)
 
-    rated_results = defaultdict(lambda: 0)
+    ratings = defaultdict(lambda: 0)
+    url_mapped_results = defaultdict(lambda: set())
 
     for engine_results in results:
         for i, result in enumerate(engine_results):
-            rated_results[result] += max_result_count - i
+            ratings[result.url] += max_result_count - i
+            url_mapped_results[result.url].add(result)
+
+    rated_results = {
+        max(url_mapped_results[url], key=lambda r: len(r.text)): rating
+        for url, rating in ratings.items()
+    }
 
     for result in rated_results.keys():
-        if detect_lang(result.title) == lang:
+        if detect_lang(f"{result.title} {result.text}") == lang:
             rated_results[result] += 2
 
     return sorted(

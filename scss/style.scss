@@ -6,11 +6,16 @@
         --muted: #{call($fn, $bg, 15)};
         --dark: #{call($fn, $bg, 30)};
         --half: #{call($fn, $bg, 43)};
-        --fg: #{call($fn, $bg, 85)};
+        --fg: #{call($fn, $bg, 80)};
     }
 }
 
 @include colors(#fbfbfb, get-function(darken));
+
+:root {
+    --hbg: #4c60ff;
+    --hfg: #fff;
+}
 
 html {
     background: var(--bg);
@@ -46,7 +51,7 @@ body {
 .logo {
     display: block;
     height: auto;
-    margin: 2em auto;
+    margin: 3em auto;
     width: 60%;
 }
 
@@ -58,6 +63,7 @@ body {
     border: 1px solid $border;
     display: flex;
     height: 3em;
+    margin: 2em 0;
 
     &:focus-within {
         box-shadow: 0 0 0.4em var(--muted);
@@ -87,6 +93,7 @@ body {
 
     & > [type="reset"] {
         font-size: 2em;
+        width: 1.4em;
     }
 
     & > [type="submit"] {
@@ -97,15 +104,48 @@ body {
 
         &:hover,
         &:focus {
-            $bg: #678fff;
-
-            background: $bg;
-            color: lighten($bg, 30);
+            background: var(--hbg);
+            color: var(--hfg);
         }
     }
 
     & > [type="search"]:placeholder-shown + [type="reset"] {
         display: none;
+    }
+}
+
+.results {
+    list-style-type: none;
+    padding: 0;
+    margin: 1em;
+
+    & > li {
+        margin-bottom: 1.5em;
+
+        & > a {
+            text-decoration: none;
+
+            & > small {
+                font-size: 0.9em;
+                color: var(--fg);
+            }
+
+            & > h3 {
+                display: inline-block;
+                margin: 0 0 0.2em;
+                padding: 0.3em 0 0;
+                color: var(--hbg);
+            }
+
+            &:hover > h3,
+            &:focus > h3 {
+                text-decoration: underline;
+            }
+        }
+
+        & > p {
+            margin: 0;
+        }
     }
 }
 

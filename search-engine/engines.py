@@ -14,7 +14,7 @@ from .results import Result
 
 _HTTPX_CLIENT = httpx.Client(
     limits=httpx.Limits(max_connections=10),
-    timeout=httpx.Timeout(2, pool=None),
+    timeout=httpx.Timeout(5, pool=None),
 )
 atexit.register(_HTTPX_CLIENT.close)
 
@@ -101,8 +101,15 @@ class XPathEngine(Engine):
     RESULT_XPATH: etree.XPath
     TITLE_XPATH: etree.XPath
     URL_XPATH: etree.XPath
+    TEXT_XPATH: etree.XPath
 
     URL_FILTER: re.Pattern
+
+    @classmethod
+    def _html_to_string(cls, elem: html.Element) -> str:
+        return html.tostring(
+            elem, encoding="unicode", method="text", with_tail=False
+        ).strip()
 
     @classmethod
     def search(cls, query: ParsedQuery) -> list[Result]:
@@ -131,9 +138,15 @@ class XPathEngine(Engine):
             if not titles:
                 continue
 
-            title = titles[0].text
+            title = cls._html_to_string(titles[0])
 
-            results.append(Result(title, url))
+            texts = cls.TEXT_XPATH(result)
+            if not texts:
+                text = ""
+            else:
+                text = cls._html_to_string(texts[0])
+
+            results.append(Result(title, url, text))
 
         return results
 
@@ -144,6 +157,7 @@ class JSONEngine(Engine):
     RESULT_KEY: str
     TITLE_KEY: str
     URL_KEY: str
+    TEXT_KEY: str
 
     @classmethod
     def search(cls, query: ParsedQuery) -> list[Result]:
@@ -167,7 +181,9 @@ class JSONEngine(Engine):
             if not title:
                 continue
 
-            results.append(Result(title, url))
+            text = result.get(cls.TEXT_KEY, "")
+
+            results.append(Result(title, url, text))
 
         return results
 
@@ -186,6 +202,7 @@ class Google(XPathEngine):
     RESULT_XPATH = etree.XPath('//div[@class="w-gl__result__main"]')
     TITLE_XPATH = etree.XPath(".//h3[1]")
     URL_XPATH = etree.XPath('.//a[@class="w-gl__result-title result-link"]')
+    TEXT_XPATH = etree.XPath('.//p[@class="w-gl__description"]')
     SC_XPATH = etree.XPath('//a[@class="footer-home__logo"]')
 
     URL_FILTER = re.compile(
@@ -236,6 +253,7 @@ class DuckDuckGo(XPathEngine):
     RESULT_XPATH = etree.XPath('//a[@class="result-link"]')
     TITLE_XPATH = etree.XPath(".")
     URL_XPATH = TITLE_XPATH
+    TEXT_XPATH = etree.XPath('../../following::tr')
 
     URL_FILTER = re.compile(r"^https?://(help\.)?duckduckgo\.com/")
 
@@ -261,6 +279,7 @@ class Alexandria(JSONEngine):
     RESULT_KEY = "results"
     TITLE_KEY = "title"
     URL_KEY = "url"
+    TEXT_KEY = "snippet"
 
 
 _LANG_MAP = {

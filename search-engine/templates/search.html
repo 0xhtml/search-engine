@@ -6,9 +6,15 @@
     <input type="reset" value="&times;" onclick="event.preventDefault();document.getElementsByName('q')[0].value = ''">
     <input type="submit" value="Suchen">
 </form>
-<ul>
+<ul class="results">
     {% for result in results %}
-    <li><a href="{{ result.url }}">{{ result.title }}</a></li>
+    <li>
+        <a href="{{ result.url }}">
+            <small>{{ result.url }}</small><br>
+            <h3>{{ result.title }}</h3>
+        </a>
+        <p>{{ result.text }}</p>
+    </li>
     {% endfor %}
 </ul>
 {% endblock %}
