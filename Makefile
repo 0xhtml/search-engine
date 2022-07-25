@@ -1,14 +1,16 @@
-.PHONY: run clean setup
+.PHONY: run build
 
-run: static/style.css uwsgi.ini
+run: build
 	env/bin/uwsgi --ini uwsgi.ini
 
-static/style.css: scss/style.scss
-	sass scss/style.scss:static/style.css
+build: search-engine/static/style.css env lid.176.bin
 
-setup: requirements.txt
+search-engine/static/style.css: scss/*.scss
+	sass scss/style.scss:search-engine/static/style.css
+
+env: requirements.txt
 	python -m venv env
 	env/bin/pip install -r requirements.txt
 
-clean:
-	rm -fr static/style.css* env
+lid.176.bin:
+	wget https://dl.fbaipublicfiles.com/fasttext/supervised-models/lid.176.bin
