@@ -47,12 +47,6 @@ class Engine:
     LANG_MAP: StrMap
     LANG_KEY: str
 
-    RESULT_XPATH: etree.XPath
-    TITLE_XPATH: etree.XPath
-    URL_XPATH: etree.XPath
-
-    URL_FILTER: re.Pattern
-
     @classmethod
     def _log(cls, msg: str, tag: Optional[str] = None):
         if tag is None:
@@ -69,14 +63,14 @@ class Engine:
         pass
 
     @classmethod
-    def search(cls, query: ParsedQuery) -> list[Result]:
-        """Perform a search and return the results."""
+    def _request(cls, query: ParsedQuery) -> httpx.Response:
         params = {cls.QUERY_KEY: query.query, **cls.PARAMS}
         headers = {**cls.HEADERS}
 
-        lang_name = cls.LANG_MAP.get(query.lang, None)
-        if lang_name is not None:
-            params[cls.LANG_KEY] = lang_name
+        if hasattr(cls, "LANG_MAP"):
+            lang_name = cls.LANG_MAP.get(query.lang, None)
+            if lang_name is not None:
+                params[cls.LANG_KEY] = lang_name
 
         cls._on_request(params, headers)
 
@@ -92,6 +86,28 @@ class Engine:
             raise NotImplementedError
 
         cls._on_response(response)
+
+        return response
+
+    @classmethod
+    def search(cls, query: ParsedQuery) -> list[Result]:
+        """Perform a search and return the results."""
+        raise NotImplementedError
+
+
+class XPathEngine(Engine):
+    """Base class for a x-path search engine."""
+
+    RESULT_XPATH: etree.XPath
+    TITLE_XPATH: etree.XPath
+    URL_XPATH: etree.XPath
+
+    URL_FILTER: re.Pattern
+
+    @classmethod
+    def search(cls, query: ParsedQuery) -> list[Result]:
+        """Perform a search and return the results."""
+        response = cls._request(query)
 
         if response.status_code != 200:
             cls._log("Didn't receive status code 200", "Error")
@@ -122,7 +138,41 @@ class Engine:
         return results
 
 
-class Google(Engine):
+class JSONEngine(Engine):
+    """Base class for search engine using JSON."""
+
+    RESULT_KEY: str
+    TITLE_KEY: str
+    URL_KEY: str
+
+    @classmethod
+    def search(cls, query: ParsedQuery) -> list[Result]:
+        """Perform a search and return the results."""
+        response = cls._request(query)
+
+        if response.status_code != 200:
+            cls._log("Didn't receive status code 200", "Error")
+            return []
+
+        json = response.json()
+
+        results = []
+
+        for result in json.get(cls.RESULT_KEY, []):
+            url = result.get(cls.URL_KEY)
+            if not url:
+                continue
+
+            title = result.get(cls.TITLE_KEY)
+            if not title:
+                continue
+
+            results.append(Result(title, url))
+
+        return results
+
+
+class Google(XPathEngine):
     """Search on Google using StartPage proxy."""
 
     URL = "https://www.startpage.com/sp/search"
@@ -167,7 +217,7 @@ class Google(Engine):
             params["lui"] = params["language"]
 
 
-class DuckDuckGo(Engine):
+class DuckDuckGo(XPathEngine):
     """Search on DuckDuckGo directly."""
 
     URL = "https://lite.duckduckgo.com/lite"
@@ -201,19 +251,22 @@ class DuckDuckGo(Engine):
         _HTTPX_CLIENT.get("https://duckduckgo.com/t/sl_l", headers=headers)
 
 
-class EnglishDummy(Engine):
-    """."""
+class Alexandria(JSONEngine):
+    """Search on alexandria an english only search engine."""
 
-    @classmethod
-    def search(cls, query: str) -> list[Result]:
-        """."""
-        return [Result("ENG LANGUAGE", "http://127.0.0.1:5000")]
+    URL = "https://api.alexandria.org"
+
+    PARAMS = {"a": "1", "c": "a"}
+
+    RESULT_KEY = "results"
+    TITLE_KEY = "title"
+    URL_KEY = "url"
 
 
 _LANG_MAP = {
     "*": (Google, DuckDuckGo),
     "de": (Google, DuckDuckGo),
-    "en": (Google, DuckDuckGo, EnglishDummy),
+    "en": (Google, DuckDuckGo, Alexandria),
 }
 
 
