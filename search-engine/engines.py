@@ -11,12 +11,14 @@ from lxml import etree, html
 from . import sessions
 from .query import ParsedQuery
 from .results import Result
+from .asyncio_wrapper import async_run
 
-_HTTPX_CLIENT = httpx.Client(
+_HTTPX_CLIENT = httpx.AsyncClient(
     limits=httpx.Limits(max_connections=10),
     timeout=httpx.Timeout(5, pool=None),
 )
-atexit.register(_HTTPX_CLIENT.close)
+atexit.register(async_run, _HTTPX_CLIENT.aclose())
+
 
 StrMap = dict[str, str]
 
@@ -55,15 +57,11 @@ class Engine:
             print(f"[!] [{cls.__name__}] [{tag}] {msg}")
 
     @classmethod
-    def _on_request(cls, params: StrMap, headers: StrMap):
+    async def _request_mixin(cls, params: StrMap, headers: StrMap):
         pass
 
     @classmethod
-    def _on_response(cls, response: httpx.Response):
-        pass
-
-    @classmethod
-    def _request(cls, query: ParsedQuery) -> httpx.Response:
+    async def _make_request(cls, query: ParsedQuery) -> httpx.Response:
         params = {cls.QUERY_KEY: query.query, **cls.PARAMS}
         headers = {**cls.HEADERS}
 
@@ -72,27 +70,35 @@ class Engine:
             if lang_name is not None:
                 params[cls.LANG_KEY] = lang_name
 
-        cls._on_request(params, headers)
+        await cls._request_mixin(params, headers)
 
         if cls.METHOD is Method.GET:
-            response = _HTTPX_CLIENT.get(
+            response = await _HTTPX_CLIENT.get(
                 cls.URL, params=params, headers=headers
             )
         elif cls.METHOD is Method.POST:
-            response = _HTTPX_CLIENT.post(
+            response = await _HTTPX_CLIENT.post(
                 cls.URL, data=params, headers=headers
             )
         else:
             raise NotImplementedError
 
-        cls._on_response(response)
-
         return response
 
     @classmethod
-    def search(cls, query: ParsedQuery) -> list[Result]:
-        """Perform a search and return the results."""
+    async def _parse_response(cls, response: httpx.Response) -> list[Result]:
         raise NotImplementedError
+
+    @classmethod
+    async def search(cls, query: ParsedQuery) -> list[Result]:
+        """Perform a search and return the results."""
+        response = await cls._make_request(query)
+
+        if response.status_code != 200:
+            cls._log("Didn't receive status code 200", "Error")
+            return []
+
+        return await cls._parse_response(response)
 
 
 class XPathEngine(Engine):
@@ -112,14 +118,7 @@ class XPathEngine(Engine):
         ).strip()
 
     @classmethod
-    def search(cls, query: ParsedQuery) -> list[Result]:
-        """Perform a search and return the results."""
-        response = cls._request(query)
-
-        if response.status_code != 200:
-            cls._log("Didn't receive status code 200", "Error")
-            return []
-
+    async def _parse_response(cls, response: httpx.Response) -> list[Result]:
         dom = html.fromstring(response.text)
 
         results = []
@@ -160,14 +159,7 @@ class JSONEngine(Engine):
     TEXT_KEY: str
 
     @classmethod
-    def search(cls, query: ParsedQuery) -> list[Result]:
-        """Perform a search and return the results."""
-        response = cls._request(query)
-
-        if response.status_code != 200:
-            cls._log("Didn't receive status code 200", "Error")
-            return []
-
+    async def _parse_response(cls, response: httpx.Response) -> list[Result]:
         json = response.json()
 
         results = []
@@ -210,7 +202,7 @@ class Google(XPathEngine):
     )
 
     @classmethod
-    def _on_request(cls, params: StrMap, headers: StrMap):
+    async def _request_mixin(cls, params: StrMap, headers: StrMap):
         session_key = "google_sc".encode()
 
         sessions.lock(sessions.Locks.GOOGLE)
@@ -218,7 +210,7 @@ class Google(XPathEngine):
         if sessions.has_expired(session_key):
             cls._log("New session")
 
-            response = _HTTPX_CLIENT.get(
+            response = await _HTTPX_CLIENT.get(
                 "https://www.startpage.com", headers=cls.HEADERS
             )
             dom = html.fromstring(response.text)
@@ -253,12 +245,12 @@ class DuckDuckGo(XPathEngine):
     RESULT_XPATH = etree.XPath('//a[@class="result-link"]')
     TITLE_XPATH = etree.XPath(".")
     URL_XPATH = TITLE_XPATH
-    TEXT_XPATH = etree.XPath('../../following::tr')
+    TEXT_XPATH = etree.XPath("../../following::tr")
 
     URL_FILTER = re.compile(r"^https?://(help\.)?duckduckgo\.com/")
 
     @classmethod
-    def _on_response(cls, response: httpx.Response):
+    async def _parse_response(cls, response: httpx.Response) -> list[Result]:
         headers = {**response.request.headers}
 
         del headers["connection"]
@@ -266,7 +258,12 @@ class DuckDuckGo(XPathEngine):
         del headers["content-type"]
         del headers["host"]
 
-        _HTTPX_CLIENT.get("https://duckduckgo.com/t/sl_l", headers=headers)
+        # TODO: don't use async but rather extra thread
+        await _HTTPX_CLIENT.get(
+            "https://duckduckgo.com/t/sl_l", headers=headers
+        )
+
+        return await super()._parse_response(response)
 
 
 class Alexandria(JSONEngine):

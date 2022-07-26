@@ -2,6 +2,7 @@
 
 from flask import Flask, make_response, render_template, request
 
+from .asyncio_wrapper import async_gather
 from .engines import get_lang_engines
 from .lang import detect_lang
 from .query import parse_query
@@ -54,7 +55,9 @@ def search():
 
     lang_engines = get_lang_engines(lang)
 
-    results = [engine.search(parsed_query) for engine in lang_engines]
+    results = async_gather(
+        [engine.search(parsed_query) for engine in lang_engines]
+    )
     results = order_results(results, lang)
 
     return render_template(
