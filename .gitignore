@@ -1,4 +1,5 @@
 __pycache__/
 env/
-static/style.css*
 lid.176.bin
+static/*.gz
+static/style.css*

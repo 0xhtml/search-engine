@@ -1,16 +1,23 @@
-.PHONY: run build
+.PHONY: run build static
+
+build: static env/bin/uwsgi lid.176.bin
 
 run: build
 	env/bin/uwsgi --ini uwsgi.ini
 
-build: static/style.css env lid.176.bin
+static: static/logo.png.gz static/style.css.gz
 
 static/style.css: scss/*.scss
 	sass scss/style.scss:static/style.css
 
-env: requirements.txt
-	python -m venv env
+static/%.gz: static/%
+	gzip -fk9 $<
+
+env/bin/uwsgi: requirements.txt env
 	env/bin/pip install -r requirements.txt
+
+env:
+	python -m venv env
 
 lid.176.bin:
 	wget https://dl.fbaipublicfiles.com/fasttext/supervised-models/lid.176.bin
