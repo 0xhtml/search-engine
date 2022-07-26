@@ -8,7 +8,7 @@ run: build
 static: static/logo.png.gz static/style.css.gz
 
 static/style.css: scss/*.scss
-	sass scss/style.scss:static/style.css
+	sass -s compressed scss/style.scss:static/style.css
 
 static/%.gz: static/%
 	gzip -fk9 $<
