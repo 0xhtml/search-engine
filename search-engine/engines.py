@@ -261,14 +261,12 @@ class DuckDuckGo(XPathEngine):
 
     @classmethod
     async def _parse_response(cls, response: httpx.Response) -> list[Result]:
-        headers = {**response.request.headers}
+        headers = {
+            key: value
+            for key, value in response.request.headers.items()
+            if key in {"user-agent", "accept-encoding", "accept", "cookie"}
+        }
 
-        del headers["connection"]
-        del headers["content-length"]
-        del headers["content-type"]
-        del headers["host"]
-
-        # TODO: don't use async but rather extra thread
         await _HTTPX_CLIENT.get(
             "https://duckduckgo.com/t/sl_l", headers=headers
         )
