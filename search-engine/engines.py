@@ -6,12 +6,14 @@ import re
 from typing import Optional
 
 import httpx
+import jsonpath_ng
+import jsonpath_ng.ext
 from lxml import etree, html
 
 from . import sessions
+from .asyncio_wrapper import async_run
 from .query import ParsedQuery
 from .results import Result
-from .asyncio_wrapper import async_run
 
 _HTTPX_CLIENT = httpx.AsyncClient(
     limits=httpx.Limits(max_connections=10),
@@ -104,10 +106,10 @@ class Engine:
 class XPathEngine(Engine):
     """Base class for a x-path search engine."""
 
-    RESULT_XPATH: etree.XPath
-    TITLE_XPATH: etree.XPath
-    URL_XPATH: etree.XPath
-    TEXT_XPATH: etree.XPath
+    RESULT_PATH: etree.XPath
+    TITLE_PATH: etree.XPath
+    URL_PATH: etree.XPath
+    TEXT_PATH: etree.XPath
 
     URL_FILTER: re.Pattern
 
@@ -123,8 +125,8 @@ class XPathEngine(Engine):
 
         results = []
 
-        for result in cls.RESULT_XPATH(dom):
-            urls = cls.URL_XPATH(result)
+        for result in cls.RESULT_PATH(dom):
+            urls = cls.URL_PATH(result)
             if not urls:
                 continue
 
@@ -133,17 +135,17 @@ class XPathEngine(Engine):
             if cls.URL_FILTER.match(url):
                 continue
 
-            titles = cls.TITLE_XPATH(result)
+            titles = cls.TITLE_PATH(result)
             if not titles:
                 continue
 
             title = cls._html_to_string(titles[0])
 
-            texts = cls.TEXT_XPATH(result)
-            if not texts:
-                text = ""
-            else:
+            texts = cls.TEXT_PATH(result)
+            if texts:
                 text = cls._html_to_string(texts[0])
+            else:
+                text = ""
 
             results.append(Result(title, url, text))
 
@@ -153,10 +155,10 @@ class XPathEngine(Engine):
 class JSONEngine(Engine):
     """Base class for search engine using JSON."""
 
-    RESULT_KEY: str
-    TITLE_KEY: str
-    URL_KEY: str
-    TEXT_KEY: str
+    RESULT_PATH: jsonpath_ng.JSONPath
+    TITLE_PATH: jsonpath_ng.JSONPath
+    URL_PATH: jsonpath_ng.JSONPath
+    TEXT_PATH: jsonpath_ng.JSONPath
 
     @classmethod
     async def _parse_response(cls, response: httpx.Response) -> list[Result]:
@@ -164,16 +166,24 @@ class JSONEngine(Engine):
 
         results = []
 
-        for result in json.get(cls.RESULT_KEY, []):
-            url = result.get(cls.URL_KEY)
-            if not url:
+        for result in cls.RESULT_PATH.find(json):
+            urls = cls.URL_PATH.find(result)
+            if not urls:
                 continue
 
-            title = result.get(cls.TITLE_KEY)
-            if not title:
+            url = urls[0].value
+
+            titles = cls.TITLE_PATH.find(result)
+            if not titles:
                 continue
 
-            text = result.get(cls.TEXT_KEY, "")
+            title = titles[0].value
+
+            texts = cls.TEXT_PATH.find(result)
+            if texts:
+                text = texts[0].value
+            else:
+                text = ""
 
             results.append(Result(title, url, text))
 
@@ -191,11 +201,11 @@ class Google(XPathEngine):
     LANG_MAP = {"de": "deutsch", "en": "english"}
     LANG_KEY = "language"
 
-    RESULT_XPATH = etree.XPath('//div[@class="w-gl__result__main"]')
-    TITLE_XPATH = etree.XPath(".//h3[1]")
-    URL_XPATH = etree.XPath('.//a[@class="w-gl__result-title result-link"]')
-    TEXT_XPATH = etree.XPath('.//p[@class="w-gl__description"]')
-    SC_XPATH = etree.XPath('//a[@class="footer-home__logo"]')
+    RESULT_PATH = etree.XPath('//div[@class="w-gl__result__main"]')
+    TITLE_PATH = etree.XPath(".//h3[1]")
+    URL_PATH = etree.XPath('.//a[@class="w-gl__result-title result-link"]')
+    TEXT_PATH = etree.XPath('.//p[@class="w-gl__description"]')
+    SC_PATH = etree.XPath('//a[@class="footer-home__logo"]')
 
     URL_FILTER = re.compile(
         r"^https?://(www\.)?(startpage\.com/do/search\?|google\.[a-z]+/aclk)"
@@ -214,7 +224,7 @@ class Google(XPathEngine):
                 "https://www.startpage.com", headers=cls.HEADERS
             )
             dom = html.fromstring(response.text)
-            params["sc"] = cls.SC_XPATH(dom)[0].get("href")[5:]
+            params["sc"] = cls.SC_PATH(dom)[0].get("href")[5:]
 
             sessions.set(session_key, params["sc"], 60 * 60)  # 1hr
         else:
@@ -242,10 +252,10 @@ class DuckDuckGo(XPathEngine):
     LANG_MAP = {"de": "de-DE", "en": "en-US"}
     LANG_KEY = "kl"
 
-    RESULT_XPATH = etree.XPath('//a[@class="result-link"]')
-    TITLE_XPATH = etree.XPath(".")
-    URL_XPATH = TITLE_XPATH
-    TEXT_XPATH = etree.XPath("../../following::tr")
+    RESULT_PATH = etree.XPath('//a[@class="result-link"]')
+    TITLE_PATH = etree.XPath(".")
+    URL_PATH = TITLE_PATH
+    TEXT_PATH = etree.XPath("../../following::tr")
 
     URL_FILTER = re.compile(r"^https?://(help\.)?duckduckgo\.com/")
 
@@ -266,6 +276,24 @@ class DuckDuckGo(XPathEngine):
         return await super()._parse_response(response)
 
 
+class Qwant(JSONEngine):
+    """Search on Qwant supporting de and en only."""
+
+    URL = "https://api.qwant.com/v3/search/web"
+
+    PARAMS = {"count": "10", "offset": "0"}
+
+    LANG_MAP = {"de": "de_DE", "en": "en_US"}
+    LANG_KEY = "locale"
+
+    RESULT_PATH = jsonpath_ng.ext.parse(
+        "data.result.items.mainline[?(@.type == web)].items[*]"
+    )
+    TITLE_PATH = jsonpath_ng.parse("title")
+    URL_PATH = jsonpath_ng.parse("url")
+    TEXT_PATH = jsonpath_ng.parse("desc")
+
+
 class Alexandria(JSONEngine):
     """Search on alexandria an english only search engine."""
 
@@ -273,19 +301,19 @@ class Alexandria(JSONEngine):
 
     PARAMS = {"a": "1", "c": "a"}
 
-    RESULT_KEY = "results"
-    TITLE_KEY = "title"
-    URL_KEY = "url"
-    TEXT_KEY = "snippet"
+    RESULT_PATH = jsonpath_ng.parse("results[*]")
+    TITLE_PATH = jsonpath_ng.parse("title")
+    URL_PATH = jsonpath_ng.parse("url")
+    TEXT_PATH = jsonpath_ng.parse("snippet")
 
 
 _LANG_MAP = {
-    "*": (Google, DuckDuckGo),
-    "de": (Google, DuckDuckGo),
-    "en": (Google, DuckDuckGo, Alexandria),
+    "*": {Google, DuckDuckGo},
+    "de": {Google, DuckDuckGo, Qwant},
+    "en": {Google, DuckDuckGo, Qwant, Alexandria},
 }
 
 
-def get_lang_engines(lang: str) -> list[Engine]:
+def get_lang_engines(lang: str) -> set[Engine]:
     """Return list of enabled engines for the language."""
     return _LANG_MAP.get(lang, _LANG_MAP["*"])
