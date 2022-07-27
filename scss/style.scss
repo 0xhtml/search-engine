@@ -126,8 +126,12 @@ body {
             text-decoration: none;
 
             & > small {
-                font-size: 0.9em;
                 color: var(--fg);
+                display: block;
+                font-size: 0.9em;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
             }
 
             & > h3 {
@@ -144,7 +148,12 @@ body {
         }
 
         & > p {
+            -webkit-box-orient: vertical;
+            -webkit-line-clamp: 3;
+            display: -webkit-box;
             margin: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
     }
 }
