@@ -1,8 +1,8 @@
 """Custom (meta) search engine."""
 
+import httpx
 from flask import Flask, make_response, render_template, request
 
-from .asyncio_wrapper import async_gather
 from .engines import get_lang_engines
 from .lang import detect_lang
 from .query import parse_query
@@ -55,9 +55,21 @@ def search():
 
     lang_engines = get_lang_engines(lang)
 
-    results = async_gather(
-        [engine.search(parsed_query) for engine in lang_engines]
-    )
+    import asyncio
+
+    async def async_results():
+        async with httpx.AsyncClient(
+            limits=httpx.Limits(max_connections=10),
+            timeout=httpx.Timeout(5, pool=None),
+        ) as client:
+            return await asyncio.gather(
+                *[
+                    engine(client).search(parsed_query)
+                    for engine in lang_engines
+                ]
+            )
+
+    results = asyncio.run(async_results())
     results = order_results(results, lang)
 
     return render_template(

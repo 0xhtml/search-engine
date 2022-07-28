@@ -1,9 +1,8 @@
 """Module to perform a search."""
 
-import atexit
 import enum
 import re
-from typing import Optional
+from typing import Optional, Type
 
 import httpx
 import jsonpath_ng
@@ -11,16 +10,8 @@ import jsonpath_ng.ext
 from lxml import etree, html
 
 from . import sessions
-from .asyncio_wrapper import async_run
 from .query import ParsedQuery
 from .results import Result
-
-_HTTPX_CLIENT = httpx.AsyncClient(
-    limits=httpx.Limits(max_connections=10),
-    timeout=httpx.Timeout(5, pool=None),
-)
-atexit.register(async_run, _HTTPX_CLIENT.aclose())
-
 
 StrMap = dict[str, str]
 
@@ -35,21 +26,25 @@ class Method(enum.Enum):
 class Engine:
     """Base class for a search engine."""
 
-    URL: str
-    METHOD: Method = Method.GET
+    _URL: str
+    _METHOD: Method = Method.GET
 
-    PARAMS: StrMap = {}
-    QUERY_KEY: str = "q"
+    _PARAMS: StrMap = {}
+    _QUERY_KEY: str = "q"
 
-    HEADERS: StrMap = {
+    _HEADERS: StrMap = {
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image"
         "/avif,image/webp,*/*;q=0.8",
         "User-Agent": "Mozilla/5.0 (Android 12; Mobile; rv:101.0) Gecko/101.0 "
         "Firefox/101.0",
     }
 
-    LANG_MAP: StrMap
-    LANG_KEY: str
+    _LANG_MAP: StrMap
+    _LANG_KEY: str
+
+    def __init__(self, client: httpx.AsyncClient):
+        """Initialize engine."""
+        self._client = client
 
     @classmethod
     def _log(cls, msg: str, tag: Optional[str] = None):
@@ -58,92 +53,87 @@ class Engine:
         else:
             print(f"[!] [{cls.__name__}] [{tag}] {msg}")
 
-    @classmethod
-    async def _request_mixin(cls, params: StrMap, headers: StrMap):
+    async def _request_mixin(self, params: StrMap, headers: StrMap):
         pass
 
-    @classmethod
-    async def _make_request(cls, query: ParsedQuery) -> httpx.Response:
-        params = {cls.QUERY_KEY: query.query, **cls.PARAMS}
-        headers = {**cls.HEADERS}
+    async def _make_request(self, query: ParsedQuery) -> httpx.Response:
+        params = {self._QUERY_KEY: query.query, **self._PARAMS}
+        headers = {**self._HEADERS}
 
-        if hasattr(cls, "LANG_MAP"):
-            lang_name = cls.LANG_MAP.get(query.lang, None)
+        if hasattr(self, "LANG_MAP"):
+            lang_name = self._LANG_MAP.get(query.lang, None)
             if lang_name is not None:
-                params[cls.LANG_KEY] = lang_name
+                params[self._LANG_KEY] = lang_name
 
-        await cls._request_mixin(params, headers)
+        await self._request_mixin(params, headers)
 
-        if cls.METHOD is Method.GET:
-            response = await _HTTPX_CLIENT.get(
-                cls.URL, params=params, headers=headers
+        if self._METHOD is Method.GET:
+            response = await self._client.get(
+                self._URL, params=params, headers=headers
             )
-        elif cls.METHOD is Method.POST:
-            response = await _HTTPX_CLIENT.post(
-                cls.URL, data=params, headers=headers
+        elif self._METHOD is Method.POST:
+            response = await self._client.post(
+                self._URL, data=params, headers=headers
             )
         else:
             raise NotImplementedError
 
         return response
 
-    @classmethod
-    async def _parse_response(cls, response: httpx.Response) -> list[Result]:
+    async def _parse_response(self, response: httpx.Response) -> list[Result]:
         raise NotImplementedError
 
-    @classmethod
-    async def search(cls, query: ParsedQuery) -> list[Result]:
+    async def search(self, query: ParsedQuery) -> list[Result]:
         """Perform a search and return the results."""
-        response = await cls._make_request(query)
+        response = await self._make_request(query)
 
         if response.status_code != 200:
-            cls._log("Didn't receive status code 200", "Error")
+            self._log("Didn't receive status code 200", "Error")
             return []
 
-        return await cls._parse_response(response)
+        return await self._parse_response(response)
 
 
 class XPathEngine(Engine):
     """Base class for a x-path search engine."""
 
-    RESULT_PATH: etree.XPath
-    TITLE_PATH: etree.XPath
-    URL_PATH: etree.XPath
-    TEXT_PATH: etree.XPath
+    _RESULT_PATH: etree.XPath
+    _TITLE_PATH: etree.XPath
+    _URL_PATH: etree.XPath
+    _TEXT_PATH: etree.XPath
 
-    URL_FILTER: re.Pattern
+    _URL_FILTER: re.Pattern
 
-    @classmethod
-    def _html_to_string(cls, elem: html.Element) -> str:
+    @staticmethod
+    def _html_to_string(elem: html.Element) -> str:
         return html.tostring(
             elem, encoding="unicode", method="text", with_tail=False
         ).strip()
 
-    @classmethod
-    async def _parse_response(cls, response: httpx.Response) -> list[Result]:
+    async def _parse_response(self, response: httpx.Response) -> list[Result]:
         dom = html.fromstring(response.text)
 
         results = []
 
-        for result in cls.RESULT_PATH(dom):
-            urls = cls.URL_PATH(result)
+        for result in self._RESULT_PATH(dom):
+            urls = self._URL_PATH(result)
             if not urls:
                 continue
 
             url = urls[0].attrib.get("href")
 
-            if cls.URL_FILTER.match(url):
+            if self._URL_FILTER.match(url):
                 continue
 
-            titles = cls.TITLE_PATH(result)
+            titles = self._TITLE_PATH(result)
             if not titles:
                 continue
 
-            title = cls._html_to_string(titles[0])
+            title = self._html_to_string(titles[0])
 
-            texts = cls.TEXT_PATH(result)
+            texts = self._TEXT_PATH(result)
             if texts:
-                text = cls._html_to_string(texts[0])
+                text = self._html_to_string(texts[0])
             else:
                 text = ""
 
@@ -155,31 +145,30 @@ class XPathEngine(Engine):
 class JSONEngine(Engine):
     """Base class for search engine using JSON."""
 
-    RESULT_PATH: jsonpath_ng.JSONPath
-    TITLE_PATH: jsonpath_ng.JSONPath
-    URL_PATH: jsonpath_ng.JSONPath
-    TEXT_PATH: jsonpath_ng.JSONPath
+    _RESULT_PATH: jsonpath_ng.JSONPath
+    _TITLE_PATH: jsonpath_ng.JSONPath
+    _URL_PATH: jsonpath_ng.JSONPath
+    _TEXT_PATH: jsonpath_ng.JSONPath
 
-    @classmethod
-    async def _parse_response(cls, response: httpx.Response) -> list[Result]:
+    async def _parse_response(self, response: httpx.Response) -> list[Result]:
         json = response.json()
 
         results = []
 
-        for result in cls.RESULT_PATH.find(json):
-            urls = cls.URL_PATH.find(result)
+        for result in self._RESULT_PATH.find(json):
+            urls = self._URL_PATH.find(result)
             if not urls:
                 continue
 
             url = urls[0].value
 
-            titles = cls.TITLE_PATH.find(result)
+            titles = self._TITLE_PATH.find(result)
             if not titles:
                 continue
 
             title = titles[0].value
 
-            texts = cls.TEXT_PATH.find(result)
+            texts = self._TEXT_PATH.find(result)
             if texts:
                 text = texts[0].value
             else:
@@ -193,38 +182,37 @@ class JSONEngine(Engine):
 class Google(XPathEngine):
     """Search on Google using StartPage proxy."""
 
-    URL = "https://www.startpage.com/sp/search"
+    _URL = "https://www.startpage.com/sp/search"
 
-    PARAMS = {"page": "0", "cat": "web"}
-    QUERY_KEY = "query"
+    _PARAMS = {"page": "0", "cat": "web"}
+    _QUERY_KEY = "query"
 
-    LANG_MAP = {"de": "deutsch", "en": "english"}
-    LANG_KEY = "language"
+    _LANG_MAP = {"de": "deutsch", "en": "english"}
+    _LANG_KEY = "language"
 
-    RESULT_PATH = etree.XPath('//div[@class="w-gl__result__main"]')
-    TITLE_PATH = etree.XPath(".//h3[1]")
-    URL_PATH = etree.XPath('.//a[@class="w-gl__result-title result-link"]')
-    TEXT_PATH = etree.XPath('.//p[@class="w-gl__description"]')
-    SC_PATH = etree.XPath('//a[@class="footer-home__logo"]')
+    _RESULT_PATH = etree.XPath('//div[@class="w-gl__result__main"]')
+    _TITLE_PATH = etree.XPath(".//h3[1]")
+    _URL_PATH = etree.XPath('.//a[@class="w-gl__result-title result-link"]')
+    _TEXT_PATH = etree.XPath('.//p[@class="w-gl__description"]')
+    _SC_PATH = etree.XPath('//a[@class="footer-home__logo"]')
 
-    URL_FILTER = re.compile(
+    _URL_FILTER = re.compile(
         r"^https?://(www\.)?(startpage\.com/do/search\?|google\.[a-z]+/aclk)"
     )
 
-    @classmethod
-    async def _request_mixin(cls, params: StrMap, headers: StrMap):
+    async def _request_mixin(self, params: StrMap, headers: StrMap):
         session_key = "google_sc".encode()
 
         sessions.lock(sessions.Locks.GOOGLE)
 
         if sessions.has_expired(session_key):
-            cls._log("New session")
+            self._log("New session")
 
-            response = await _HTTPX_CLIENT.get(
-                "https://www.startpage.com", headers=cls.HEADERS
+            response = await self._client.get(
+                "https://www.startpage.com", headers=self._HEADERS
             )
             dom = html.fromstring(response.text)
-            params["sc"] = cls.SC_PATH(dom)[0].get("href")[5:]
+            params["sc"] = self._SC_PATH(dom)[0].get("href")[5:]
 
             sessions.set(session_key, params["sc"], 60 * 60)  # 1hr
         else:
@@ -239,35 +227,35 @@ class Google(XPathEngine):
 class DuckDuckGo(XPathEngine):
     """Search on DuckDuckGo directly."""
 
-    URL = "https://lite.duckduckgo.com/lite"
-    METHOD = Method.POST
+    _URL = "https://lite.duckduckgo.com/lite"
+    _METHOD = Method.POST
 
-    PARAMS = {"df": ""}
+    _PARAMS = {"df": ""}
 
-    HEADERS = {
-        **Engine.HEADERS,
+    _HEADERS = {
+        **Engine._HEADERS,
         "Content-Type": "application/x-www-form-urlencoded",
     }
 
-    LANG_MAP = {"de": "de-DE", "en": "en-US"}
-    LANG_KEY = "kl"
+    _LANG_MAP = {"de": "de-DE", "en": "en-US"}
+    _LANG_KEY = "kl"
 
-    RESULT_PATH = etree.XPath('//a[@class="result-link"]')
-    TITLE_PATH = etree.XPath(".")
-    URL_PATH = TITLE_PATH
-    TEXT_PATH = etree.XPath("../../following::tr")
+    _RESULT_PATH = etree.XPath('//a[@class="result-link"]')
+    _TITLE_PATH = etree.XPath(".")
+    _URL_PATH = _TITLE_PATH
+    _TEXT_PATH = etree.XPath("../../following::tr")
 
-    URL_FILTER = re.compile(r"^https?://(help\.)?duckduckgo\.com/")
+    _URL_FILTER = re.compile(r"^https?://(help\.)?duckduckgo\.com/")
 
-    @classmethod
-    async def _parse_response(cls, response: httpx.Response) -> list[Result]:
+    async def _parse_response(self, response: httpx.Response) -> list[Result]:
         headers = {
             key: value
             for key, value in response.request.headers.items()
             if key in {"user-agent", "accept-encoding", "accept", "cookie"}
         }
 
-        await _HTTPX_CLIENT.get(
+        # TODO: check if headers=self._HEADERS would be fine
+        await self._client.get(
             "https://duckduckgo.com/t/sl_l", headers=headers
         )
 
@@ -277,32 +265,32 @@ class DuckDuckGo(XPathEngine):
 class Qwant(JSONEngine):
     """Search on Qwant supporting de and en only."""
 
-    URL = "https://api.qwant.com/v3/search/web"
+    _URL = "https://api.qwant.com/v3/search/web"
 
-    PARAMS = {"count": "10", "offset": "0"}
+    _PARAMS = {"count": "10", "offset": "0"}
 
-    LANG_MAP = {"de": "de_DE", "en": "en_US"}
-    LANG_KEY = "locale"
+    _LANG_MAP = {"de": "de_DE", "en": "en_US"}
+    _LANG_KEY = "locale"
 
-    RESULT_PATH = jsonpath_ng.ext.parse(
+    _RESULT_PATH = jsonpath_ng.ext.parse(
         "data.result.items.mainline[?(@.type == web)].items[*]"
     )
-    TITLE_PATH = jsonpath_ng.parse("title")
-    URL_PATH = jsonpath_ng.parse("url")
-    TEXT_PATH = jsonpath_ng.parse("desc")
+    _TITLE_PATH = jsonpath_ng.parse("title")
+    _URL_PATH = jsonpath_ng.parse("url")
+    _TEXT_PATH = jsonpath_ng.parse("desc")
 
 
 class Alexandria(JSONEngine):
     """Search on alexandria an english only search engine."""
 
-    URL = "https://api.alexandria.org"
+    _URL = "https://api.alexandria.org"
 
-    PARAMS = {"a": "1", "c": "a"}
+    _PARAMS = {"a": "1", "c": "a"}
 
-    RESULT_PATH = jsonpath_ng.parse("results[*]")
-    TITLE_PATH = jsonpath_ng.parse("title")
-    URL_PATH = jsonpath_ng.parse("url")
-    TEXT_PATH = jsonpath_ng.parse("snippet")
+    _RESULT_PATH = jsonpath_ng.parse("results[*]")
+    _TITLE_PATH = jsonpath_ng.parse("title")
+    _URL_PATH = jsonpath_ng.parse("url")
+    _TEXT_PATH = jsonpath_ng.parse("snippet")
 
 
 _LANG_MAP = {
@@ -312,6 +300,6 @@ _LANG_MAP = {
 }
 
 
-def get_lang_engines(lang: str) -> set[Engine]:
+def get_lang_engines(lang: str) -> set[Type[Engine]]:
     """Return list of enabled engines for the language."""
     return _LANG_MAP.get(lang, _LANG_MAP["*"])
