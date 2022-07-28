@@ -18,6 +18,9 @@ def parse_query(query: str) -> ParsedQuery:
     lang = None
 
     for query_part in query.split(" "):
+        if not query_part:
+            continue
+
         if query_part[0] == ":" and len(query_part) > 1:
             if query_part[1] == ":":
                 parsed_query.append(query_part[1:])
