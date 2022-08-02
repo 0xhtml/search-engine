@@ -1,5 +1,7 @@
 """Custom (meta) search engine."""
 
+import asyncio
+
 import httpx
 from flask import Flask, make_response, render_template, request
 
@@ -54,8 +56,6 @@ def search():
         lang = parsed_query.lang
 
     lang_engines = get_lang_engines(lang)
-
-    import asyncio
 
     async def async_results():
         async with httpx.AsyncClient(

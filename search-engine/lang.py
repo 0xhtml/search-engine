@@ -2,9 +2,14 @@
 
 import fasttext
 
-_FASTTEXT_MODEL = fasttext.load_model("lid.176.bin")
+_MODEL = None
 
 
 def detect_lang(text: str) -> str:
     """Detect language of given text, returning ISO language code."""
-    return _FASTTEXT_MODEL.predict(text)[0][0].replace("__label__", "")
+    global _MODEL
+
+    if not _MODEL:
+        _MODEL = fasttext.load_model("lid.176.bin")
+
+    return _MODEL.predict(text)[0][0].replace("__label__", "")
