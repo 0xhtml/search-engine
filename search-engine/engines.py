@@ -1,6 +1,5 @@
 """Module to perform a search."""
 
-import enum
 from typing import Optional, Type
 
 import httpx
@@ -15,18 +14,11 @@ from .results import Result
 StrMap = dict[str, str]
 
 
-class Method(enum.Enum):
-    """Supported http methods."""
-
-    GET = enum.auto()
-    POST = enum.auto()
-
-
 class Engine:
     """Base class for a search engine."""
 
     _URL: str
-    _METHOD: Method = Method.GET
+    _METHOD: str = "GET"
 
     _PARAMS: StrMap = {}
     _QUERY_KEY: str = "q"
@@ -55,7 +47,11 @@ class Engine:
     async def _request_mixin(self, params: StrMap, headers: StrMap):
         pass
 
-    async def _make_request(self, query: ParsedQuery) -> httpx.Response:
+    async def _parse_response(self, response: httpx.Response) -> list[Result]:
+        raise NotImplementedError
+
+    async def search(self, query: ParsedQuery) -> list[Result]:
+        """Perform a search and return the results."""
         params = {self._QUERY_KEY: query.query, **self._PARAMS}
         headers = {**self._HEADERS}
 
@@ -66,25 +62,12 @@ class Engine:
 
         await self._request_mixin(params, headers)
 
-        if self._METHOD is Method.GET:
-            response = await self._client.get(
-                self._URL, params=params, headers=headers
-            )
-        elif self._METHOD is Method.POST:
-            response = await self._client.post(
-                self._URL, data=params, headers=headers
-            )
-        else:
-            raise NotImplementedError
-
-        return response
-
-    async def _parse_response(self, response: httpx.Response) -> list[Result]:
-        raise NotImplementedError
-
-    async def search(self, query: ParsedQuery) -> list[Result]:
-        """Perform a search and return the results."""
-        response = await self._make_request(query)
+        response = await self._client.request(
+            self._METHOD,
+            self._URL,
+            **{"data" if self._METHOD == "POST" else "params": params},
+            headers=headers,
+        )
 
         if response.status_code != 200:
             self._log("Didn't receive status code 200", "Error")
@@ -210,7 +193,7 @@ class DuckDuckGo(XPathEngine):
     """Search on DuckDuckGo directly."""
 
     _URL = "https://lite.duckduckgo.com/lite"
-    _METHOD = Method.POST
+    _METHOD = "POST"
 
     _PARAMS = {"df": ""}
 
