@@ -45,17 +45,12 @@ def search():
 
     query = query.strip()
 
-    if len(query) == 0:
+    if not query:
         return error("Der Suchbegriff ist leer")
 
     parsed_query = parse_query(query)
 
-    if parsed_query.lang is None:
-        lang = detect_lang(parsed_query.query)
-    else:
-        lang = parsed_query.lang
-
-    lang_engines = get_lang_engines(lang)
+    lang_engines = get_lang_engines(parsed_query.lang)
 
     async def async_results():
         async with httpx.AsyncClient(
@@ -70,7 +65,7 @@ def search():
             )
 
     results = asyncio.run(async_results())
-    results = order_results(results, lang)
+    results = order_results(results, parsed_query.lang)
 
     return render_template(
         "search.html", title=parsed_query.query, query=query, results=results

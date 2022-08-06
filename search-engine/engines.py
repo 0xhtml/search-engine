@@ -108,7 +108,7 @@ class XPathEngine(Engine):
         ).strip()
 
     async def _parse_response(self, response: httpx.Response) -> list[Result]:
-        dom = html.fromstring(response.text)
+        dom = etree.fromstring(response.text, parser=html.html_parser)
 
         results = []
 
