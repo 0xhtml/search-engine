@@ -6,7 +6,6 @@ import httpx
 from flask import Flask, make_response, render_template, request
 
 from .engines import get_lang_engines
-from .lang import detect_lang
 from .query import parse_query
 from .results import order_results
 
@@ -68,5 +67,5 @@ def search():
     results = order_results(results, parsed_query.lang)
 
     return render_template(
-        "search.html", title=parsed_query.query, query=query, results=results
+        "search.html", title=query, query=query, results=results
     )

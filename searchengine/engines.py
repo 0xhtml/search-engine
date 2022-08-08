@@ -22,6 +22,7 @@ class Engine:
 
     _PARAMS: StrMap = {}
     _QUERY_KEY: str = "q"
+    _SIMPLE_QUERY: bool = False
 
     _HEADERS: StrMap = {
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image"
@@ -52,7 +53,10 @@ class Engine:
 
     async def search(self, query: ParsedQuery) -> list[Result]:
         """Perform a search and return the results."""
-        params = {self._QUERY_KEY: query.query, **self._PARAMS}
+        params = {
+            self._QUERY_KEY: query.to_string(self._SIMPLE_QUERY),
+            **self._PARAMS,
+        }
         headers = {**self._HEADERS}
 
         if hasattr(self, "_LANG_MAP"):
@@ -239,6 +243,7 @@ class Alexandria(JSONEngine):
     _URL = "https://api.alexandria.org"
 
     _PARAMS = {"a": "1", "c": "a"}
+    _SIMPLE_QUERY = True
 
     _RESULT_PATH = jsonpath_ng.parse("results[*]")
     _TEXT_KEY = "snippet"
