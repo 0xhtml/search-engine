@@ -75,3 +75,11 @@ def search():
         parsed_query=parsed_query,
         results=results,
     )
+
+
+@application.route("/opensearch.xml")
+def opensearch():
+    """Return opensearch.xml."""
+    response = make_response(render_template("opensearch.xml"))
+    response.headers["Content-Type"] = "application/xml"
+    return response
