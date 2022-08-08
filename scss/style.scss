@@ -135,10 +135,11 @@ body {
             }
 
             & > h3 {
-                display: inline-block;
+                color: var(--hbg);
+                display: block;
+                font-weight: normal;
                 margin: 0 0 0.2em;
                 padding: 0.3em 0 0;
-                color: var(--hbg);
             }
 
             &:hover > h3,

@@ -8,8 +8,10 @@ from flask import Flask, make_response, render_template, request
 from .engines import get_lang_engines
 from .query import parse_query
 from .results import order_results
+from .template_filter import TEMPLATE_FILTER_MAP
 
 application = Flask(__name__)
+application.jinja_env.filters.update(TEMPLATE_FILTER_MAP)
 
 
 def error(message: str):
@@ -67,5 +69,9 @@ def search():
     results = order_results(results, parsed_query.lang)
 
     return render_template(
-        "search.html", title=query, query=query, results=results
+        "search.html",
+        title=query,
+        query=query,
+        parsed_query=parsed_query,
+        results=results,
     )

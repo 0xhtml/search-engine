@@ -11,9 +11,9 @@
     <li>
         <a href="{{ result.url }}">
             <small>{{ result.url }}</small>
-            <h3>{{ result.title }}</h3>
+            <h3>{{ result.title | highlight(parsed_query) }}</h3>
         </a>
-        <p>{{ result.text }}</p>
+        <p>{{ result.text | highlight(parsed_query) }}</p>
     </li>
     {% endfor %}
 </ul>
