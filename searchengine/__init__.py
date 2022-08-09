@@ -1,6 +1,7 @@
 """Custom (meta) search engine."""
 
 import asyncio
+import gettext
 
 import httpx
 from flask import Flask, make_response, render_template, request
@@ -10,20 +11,25 @@ from .query import parse_query
 from .results import order_results
 from .template_filter import TEMPLATE_FILTER_MAP
 
+_ = gettext.translation("msg", "locales", fallback=True).gettext
+
 application = Flask(__name__)
 application.jinja_env.filters.update(TEMPLATE_FILTER_MAP)
+application.jinja_env.globals["_"] = _
 
 
 def error(message: str):
     """Return error page."""
-    return render_template("index.html", title="Error", error_message=message)
+    return render_template(
+        "index.html", title=_("Error"), error_message=message
+    )
 
 
 @application.errorhandler(404)
-def page_not_found(_):
+def page_not_found(code):
     """Return 404 error page."""
     if "text/html" in request.headers.get("Accept", ""):
-        return error("Die Seite wurde nicht gefunden"), 404
+        return error(_("The requested page was not not found")), 404
 
     response = make_response("404 Not Found", 404)
     response.headers["Content-Type"] = "text/plain"
@@ -33,7 +39,7 @@ def page_not_found(_):
 @application.route("/")
 def index():
     """Return the start page."""
-    return render_template("index.html", title="Suche")
+    return render_template("index.html", title=_("Search"))
 
 
 @application.route("/search")
@@ -42,12 +48,12 @@ def search():
     query = request.args.get("q", None, str)
 
     if query is None:
-        return error("Wir haben keinen Suchbegriff empfangen können"), 404
+        return error(_("No search term was received")), 404
 
     query = query.strip()
 
     if not query:
-        return error("Der Suchbegriff ist leer")
+        return error(_("The search term is empty"))
 
     parsed_query = parse_query(query)
 

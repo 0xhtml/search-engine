@@ -1,5 +1,6 @@
 __pycache__/
 env/
 lid.176.bin
+locales/*/LC_MESSAGES/*.mo
 static/*.gz
 static/style.css*

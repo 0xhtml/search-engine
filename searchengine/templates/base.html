@@ -2,16 +2,16 @@
 <html lang="de">
     <head>
         <meta charset="utf-8">
-        <title>{{ title }} &ndash; Websuche</title>
+        <title>{{ title }} &ndash; {{ _("Websearch") }}</title>
         <link rel="stylesheet" href="{{ url_for("static", filename="style.css") }}">
         <meta name="viewport" content="width=device-width, initial-scale=1">
-        <meta name="description" content="Eine (Meta-)Suchmaschine.">
-        <link rel="search" type="application/opensearchdescription+xml" title="Websuche" href="{{ url_for("opensearch") }}">
+        <meta name="description" content="{{ _("A (meta) search engine") }}">
+        <link rel="search" type="application/opensearchdescription+xml" title="{{ _("Websearch") }}" href="{{ url_for("opensearch") }}">
     </head>
     <body>
         {% if error_message is defined %}
         <div class="error">
-            <h4>Fehler</h4>
+            <h4>{{ _("Error") }}</h4>
             <p>{{ error_message }}</p>
         </div>
         {% endif %}

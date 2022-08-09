@@ -5,20 +5,29 @@ else
 	UWSGI=uwsgi
 endif
 
-.PHONY: run build static
 
-build: static env lid.176.bin
+.PHONY: build build_locales build_static run
+
+
+build: build_static build_locales env lid.176.bin
+
+build_locales: $(patsubst %.po, %.mo, $(wildcard locales/*/LC_MESSAGES/*.po))
+
+build_static: static/style.css.gz static/logo.png.gz
+
 
 run: build
 	$(UWSGI) --ini uwsgi.ini --http 127.0.0.1:5000
 
-static: static/logo.png.gz static/style.css.gz
+
+%.mo: %.po
+	msgfmt -o $@ $<
+
+%.gz: %
+	gzip -fk9 $<
 
 static/style.css: scss/*.scss
 	sass -s compressed scss/style.scss:static/style.css
-
-static/%.gz: static/%
-	gzip -fk9 $<
 
 env: requirements.txt
 	touch -c env

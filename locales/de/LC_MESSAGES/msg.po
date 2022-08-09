@@ -1,0 +1,38 @@
+msgid ""
+msgstr ""
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+
+#: searchengine/__init__.py:24 searchengine/templates/base.html:14
+msgid "Error"
+msgstr "Fehler"
+
+#: searchengine/__init__.py:32
+msgid "The requested page was not not found"
+msgstr "Die Seite wurde nicht gefunden"
+
+#: searchengine/__init__.py:42
+msgid "Search"
+msgstr "Suchen"
+
+#: searchengine/__init__.py:51
+msgid "No search term was received"
+msgstr "Wir haben keinen Suchbegriff empfangen können"
+
+#: searchengine/__init__.py:56
+msgid "The search term is empty"
+msgstr "Der Suchbegriff ist leer"
+
+#: searchengine/templates/base.html:5 searchengine/templates/opensearch.xml:3
+msgid "Websearch"
+msgstr "Websuche"
+
+#: searchengine/templates/opensearch.xml:4
+msgid "A (meta) search engine"
+msgstr "Eine (Meta-)Suchmaschine"
+
+#: searchengine/templates/index.hml:6 searchengine/templates/search.html:5
+msgid "Search the web..."
+msgstr "Dursuche das Web..."

@@ -2,9 +2,9 @@
 
 {% block content %}
 <form action="{{ url_for("search") }}" class="search">
-    <input type="search" name="q" placeholder="Durchsuche das Web..." value="{{ query }}" required>
+    <input type="search" name="q" placeholder="{{ _("Search the web...") }}" value="{{ query }}" required>
     <input type="reset" value="&times;" onclick="event.preventDefault();document.getElementsByName('q')[0].value = ''">
-    <input type="submit" value="Suchen">
+    <input type="submit" value="{{ _("Search") }}">
 </form>
 <ul class="results">
     {% for result in results %}
