@@ -14,6 +14,10 @@ from .results import Result
 StrMap = dict[str, str]
 
 
+class EngineError(Exception):
+    """Exception that is raised when a request fails."""
+
+
 class Engine:
     """Base class for a search engine."""
 
@@ -74,8 +78,7 @@ class Engine:
         )
 
         if response.status_code != 200:
-            self._log("Didn't receive status code 200", "Error")
-            return []
+            raise EngineError("Didn't receive status code 200")
 
         return await self._parse_response(response)
 

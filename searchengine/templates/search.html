@@ -17,4 +17,14 @@
     </li>
     {% endfor %}
 </ul>
+{% if engine_errors %}
+<div class="error">
+    <h4>{{ _("Error") }}</h4>
+    <ul>
+        {% for error in engine_errors %}
+        <li>{{ error }}</li>
+        {% endfor %}
+    </ul>
+</div>
+{% endif %}
 {% endblock %}

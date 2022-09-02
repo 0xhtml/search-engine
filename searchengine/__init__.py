@@ -6,7 +6,7 @@ import gettext
 import httpx
 from flask import Flask, make_response, render_template, request
 
-from .engines import get_lang_engines
+from .engines import EngineError, get_lang_engines
 from .query import parse_query
 from .results import order_results
 from .template_filter import TEMPLATE_FILTER_MAP
@@ -59,6 +59,18 @@ def search():
 
     lang_engines = get_lang_engines(parsed_query.lang)
 
+    errors = []
+
+    async def async_search(engine):
+        try:
+            return await engine.search(parsed_query)
+        except EngineError as e:
+            nonlocal errors
+            errors.append(f"{type(engine).__name__}: {e}")
+            engine._log(e)
+
+        return []
+
     async def async_results():
         async with httpx.AsyncClient(
             limits=httpx.Limits(max_connections=10),
@@ -66,7 +78,7 @@ def search():
         ) as client:
             return await asyncio.gather(
                 *[
-                    engine(client).search(parsed_query)
+                    async_search(engine(client))
                     for engine in lang_engines
                 ]
             )
@@ -80,6 +92,7 @@ def search():
         query=query,
         parsed_query=parsed_query,
         results=results,
+        engine_errors=errors,
     )
 
 
