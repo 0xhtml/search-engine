@@ -70,12 +70,15 @@ class Engine:
 
         await self._request_mixin(params, headers)
 
-        response = await self._client.request(
-            self._METHOD,
-            self._URL,
-            **{"data" if self._METHOD == "POST" else "params": params},
-            headers=headers,
-        )
+        try:
+            response = await self._client.request(
+                self._METHOD,
+                self._URL,
+                **{"data" if self._METHOD == "POST" else "params": params},
+                headers=headers,
+            )
+        except httpx.RequestError as e:
+            raise EngineError(f"Request error on search ({e})")
 
         if response.status_code != 200:
             raise EngineError("Didn't receive status code 200")
@@ -180,11 +183,19 @@ class Google(XPathEngine):
         if sessions.has_expired(session_key):
             self._log("New session")
 
-            response = await self._client.get(
-                "https://www.startpage.com", headers=self._HEADERS
-            )
+            try:
+                response = await self._client.get(
+                    "https://www.startpage.com", headers=self._HEADERS
+                )
+            except httpx.RequestError as e:
+                raise EngineError(f"Couldn't get new session ({e})")
+
             dom = html.fromstring(response.text)
-            params["sc"] = self._SC_PATH(dom)[0].get("href")[5:]
+
+            try:
+                params["sc"] = self._SC_PATH(dom)[0].get("href")[5:]
+            except IndexError:
+                raise EngineError("Couldn't get new session (IndexError)")
 
             sessions.set(session_key, params["sc"], 60 * 60)  # 1hr
         else:
@@ -218,9 +229,13 @@ class DuckDuckGo(XPathEngine):
     _TEXT_PATH = etree.XPath("../../following::tr")
 
     async def _parse_response(self, response: httpx.Response) -> list[Result]:
-        await self._client.get(
-            "https://duckduckgo.com/t/sl_l", headers=super()._HEADERS
-        )
+        try:
+            await self._client.get(
+                "https://duckduckgo.com/t/sl_l", headers=super()._HEADERS
+            )
+        except httpx.RequestError as e:
+            raise EngineError(f"Request error on ping ({e})")
+
         return await super()._parse_response(response)
 
 
