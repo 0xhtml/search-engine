@@ -7,13 +7,14 @@
     <input type="submit" value="{{ _("Search") }}">
 </form>
 <ul class="results">
-    {% for result in results %}
+    {% for rated_result in results %}
     <li>
-        <a href="{{ result.url }}">
-            <small>{{ result.url }}</small>
-            <h3>{{ result.title | highlight(parsed_query) }}</h3>
+        <a href="{{ rated_result.result.url }}">
+            <small>{{ rated_result.result.url }}</small>
+            <h3>{{ rated_result.result.title | highlight(parsed_query) }}</h3>
         </a>
-        <p>{{ result.text | highlight(parsed_query) }}</p>
+        <p>{{ rated_result.result.text | highlight(parsed_query) }}</p>
+        <small>{{ "{:.1f}".format(rated_result.rating) }} - {{ rated_result.engines | sort | join(" ") }}</small>
     </li>
     {% endfor %}
 </ul>

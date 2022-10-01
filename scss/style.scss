@@ -122,6 +122,10 @@ body {
     & > li {
         margin-bottom: 1.5em;
 
+        & > small {
+            color: var(--half);
+        }
+
         & > a {
             text-decoration: none;
 

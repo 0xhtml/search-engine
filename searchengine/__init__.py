@@ -63,13 +63,13 @@ def search():
 
     async def async_search(engine):
         try:
-            return await engine.search(parsed_query)
+            return type(engine).__name__, await engine.search(parsed_query)
         except EngineError as e:
             nonlocal errors
             errors.append(f"{type(engine).__name__}: {e}")
             engine._log(e)
 
-        return []
+        return type(engine).__name__, []
 
     async def async_results():
         async with httpx.AsyncClient(
@@ -77,10 +77,7 @@ def search():
             timeout=httpx.Timeout(5, pool=None),
         ) as client:
             return await asyncio.gather(
-                *[
-                    async_search(engine(client))
-                    for engine in lang_engines
-                ]
+                *[async_search(engine(client)) for engine in lang_engines]
             )
 
     results = asyncio.run(async_results())
