@@ -178,30 +178,27 @@ class Google(XPathEngine):
     async def _request_mixin(self, params: StrMap, headers: StrMap):
         session_key = "google_sc".encode()
 
-        sessions.lock(sessions.Locks.GOOGLE)
+        with sessions.lock(sessions.Locks.GOOGLE):
+            if sessions.has_expired(session_key):
+                self._log("New session")
 
-        if sessions.has_expired(session_key):
-            self._log("New session")
+                try:
+                    response = await self._client.get(
+                        "https://www.startpage.com", headers=self._HEADERS
+                    )
+                except httpx.RequestError as e:
+                    raise EngineError(f"Couldn't get new session ({e})")
 
-            try:
-                response = await self._client.get(
-                    "https://www.startpage.com", headers=self._HEADERS
-                )
-            except httpx.RequestError as e:
-                raise EngineError(f"Couldn't get new session ({e})")
+                dom = html.fromstring(response.text)
 
-            dom = html.fromstring(response.text)
+                try:
+                    params["sc"] = self._SC_PATH(dom)[0].get("href")[5:]
+                except IndexError:
+                    raise EngineError("Couldn't get new session (IndexError)")
 
-            try:
-                params["sc"] = self._SC_PATH(dom)[0].get("href")[5:]
-            except IndexError:
-                raise EngineError("Couldn't get new session (IndexError)")
-
-            sessions.set(session_key, params["sc"], 60 * 60)  # 1hr
-        else:
-            params["sc"] = sessions.get(session_key).decode()
-
-        sessions.unlock(sessions.Locks.GOOGLE)
+                sessions.set(session_key, params["sc"], 60 * 60)  # 1hr
+            else:
+                params["sc"] = sessions.get(session_key).decode()
 
         if "langugage" in params:
             params["lui"] = params["language"]

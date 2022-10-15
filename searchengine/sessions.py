@@ -1,6 +1,7 @@
 """Module to store session data of engines."""
 
 import enum
+import contextlib
 
 import uwsgi
 
@@ -13,14 +14,14 @@ class Locks(enum.Enum):
     GOOGLE = enum.auto()
 
 
+@contextlib.contextmanager
 def lock(num: Locks):
     """Lock a lock to use session data."""
     uwsgi.lock(num.value)
-
-
-def unlock(num: Locks):
-    """Unlock a lock."""
-    uwsgi.unlock(num.value)
+    try:
+        yield
+    finally:
+        uwsgi.unlock(num.value)
 
 
 def get(key: bytes) -> bytes:
