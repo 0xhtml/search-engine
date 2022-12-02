@@ -80,8 +80,11 @@ class Engine:
         except httpx.RequestError as e:
             raise EngineError(f"Request error on search ({e})")
 
-        if response.status_code != 200:
-            raise EngineError("Didn't receive status code 200")
+        if not response.is_success:
+            raise EngineError(
+                "Didn't receive status code 2xx"
+                f" ({response.status_code} {response.reason_phrase})"
+            )
 
         return await self._parse_response(response)
 
@@ -90,9 +93,9 @@ class XPathEngine(Engine):
     """Base class for a x-path search engine."""
 
     _RESULT_PATH: etree.XPath
-    _TITLE_PATH: etree.XPath
-    _URL_PATH: etree.XPath
-    _TEXT_PATH: etree.XPath
+    _TITLE_PATH: Optional[etree.XPath]
+    _URL_PATH: Optional[etree.XPath]
+    _TEXT_PATH: Optional[etree.XPath]
 
     @staticmethod
     def _html_to_string(elem: html.Element) -> str:
@@ -100,29 +103,42 @@ class XPathEngine(Engine):
             elem, encoding="unicode", method="text", with_tail=False
         ).strip()
 
+    @staticmethod
+    def _get_elem(
+        root: html.Element, path: Optional[etree.XPath]
+    ) -> Optional[html.Element]:
+        if path is None:
+            return root
+
+        elems = path(root)
+        if not elems:
+            return None
+
+        return elems[0]
+
     async def _parse_response(self, response: httpx.Response) -> list[Result]:
         dom = etree.fromstring(response.text, parser=html.html_parser)
 
         results = []
 
         for result in self._RESULT_PATH(dom):
-            urls = self._URL_PATH(result)
-            if not urls:
+            url = self._get_elem(result, self._URL_PATH)
+            if url is None:
                 continue
+            url = url.attrib.get("href")
 
-            url = urls[0].attrib.get("href")
-
-            titles = self._TITLE_PATH(result)
-            if not titles:
+            title = self._get_elem(result, self._TITLE_PATH)
+            if title is None:
                 continue
+            title = self._html_to_string(title)
 
-            title = self._html_to_string(titles[0])
-
-            texts = self._TEXT_PATH(result)
-            if texts:
-                text = self._html_to_string(texts[0])
-            else:
+            if (
+                not hasattr(self, "_TEXT_PATH")
+                or (text := self._get_elem(result, self._TEXT_PATH)) is None
+            ):
                 text = ""
+            else:
+                text = self._html_to_string(text)
 
             results.append(Result(title, url, text))
 
@@ -186,15 +202,12 @@ class Google(XPathEngine):
                     response = await self._client.get(
                         "https://www.startpage.com", headers=self._HEADERS
                     )
-                except httpx.RequestError as e:
-                    raise EngineError(f"Couldn't get new session ({e})")
 
-                dom = html.fromstring(response.text)
+                    dom = html.fromstring(response.text)
 
-                try:
                     params["sc"] = self._SC_PATH(dom)[0].get("href")[5:]
-                except IndexError:
-                    raise EngineError("Couldn't get new session (IndexError)")
+                except (httpx.RequestError, IndexError) as e:
+                    raise EngineError(f"Couldn't get new session ({e})")
 
                 sessions.set(session_key, params["sc"], 60 * 60)  # 1hr
             else:
@@ -221,8 +234,8 @@ class DuckDuckGo(XPathEngine):
     _LANG_KEY = "kl"
 
     _RESULT_PATH = etree.XPath('//tr[not(@class)]/td/a[@class="result-link"]')
-    _TITLE_PATH = etree.XPath(".")
-    _URL_PATH = _TITLE_PATH
+    _TITLE_PATH = None
+    _URL_PATH = None
     _TEXT_PATH = etree.XPath("../../following::tr")
 
     async def _parse_response(self, response: httpx.Response) -> list[Result]:
@@ -264,13 +277,54 @@ class Alexandria(JSONEngine):
     _TEXT_KEY = "snippet"
 
 
+class Mojeek(XPathEngine):
+    """Search on mojeek."""
+
+    _URL = "https://www.mojeek.com/search"
+
+    _RESULT_PATH = etree.XPath('//a[@class="ob"]')
+    _TITLE_PATH = etree.XPath("./h2")
+    _URL_PATH = None
+    _TEXT_PATH = etree.XPath('../p[@class="s"]')
+
+
+class Fastbot(XPathEngine):
+    """Search on fastbot."""
+
+    _URL = "https://www.fastbot.de/index.php"
+    _METHOD = "POST"
+
+    _PARAMS = {"s": "de"}
+    _QUERY_KEY = "query"
+    _SIMPLE_QUERY = True
+
+    _HEADERS = {
+        **XPathEngine._HEADERS,
+        "Content-Type": "application/x-www-form-urlencoded",
+    }
+
+    _RESULT_PATH = etree.XPath("//b/a")
+    _TITLE_PATH = None
+    _URL_PATH = None
+
+    async def _parse_response(self, response: httpx.Response) -> list[Result]:
+        results = await super()._parse_response(response)
+
+        results = [
+            Result(result.title, result.url.split("+")[-1], result.text)
+            for result in results
+        ]
+
+        return results
+
+
 _LANG_MAP = {
-    "*": {Google, DuckDuckGo},
-    "de": {Google, DuckDuckGo, Qwant},
-    "en": {Google, DuckDuckGo, Qwant, Alexandria},
+    "*": {Google, DuckDuckGo, Mojeek},
+    "de": {Qwant, Fastbot},
+    "en": {Qwant, Alexandria},
 }
 
 
 def get_lang_engines(lang: str) -> set[Type[Engine]]:
     """Return list of enabled engines for the language."""
-    return _LANG_MAP.get(lang, _LANG_MAP["*"])
+    return _LANG_MAP.get("*", set()).union(_LANG_MAP.get(lang, set()))
