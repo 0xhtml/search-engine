@@ -6,7 +6,7 @@ else
 endif
 
 
-.PHONY: build build_locales build_static run
+.PHONY: build build_locales build_static run test
 
 
 build: build_static build_locales env lid.176.bin
@@ -18,6 +18,10 @@ build_static: static/style.css.gz static/logo.png.gz
 
 run: build
 	$(UWSGI) --ini uwsgi.ini --http 127.0.0.1:5000
+
+
+test: build
+	env/bin/python -m pytest
 
 
 %.mo: %.po

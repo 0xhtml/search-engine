@@ -28,7 +28,7 @@ class ParsedQuery(NamedTuple):
         return string[:-1]
 
 
-_REGEX_QUERY = re.compile(r"\"([^\"]+)\"?|:(:\S*)|:(\S+)|(\S+)")
+_REGEX_QUERY = re.compile(r"\"([^\"]*)\"?|:(\S+)|(\S+)")
 
 
 def parse_query(query: str) -> ParsedQuery:
@@ -37,12 +37,17 @@ def parse_query(query: str) -> ParsedQuery:
     lang = None
 
     for m in _REGEX_QUERY.finditer(query):
-        if m[1]:
-            query_parts.append(" ".join(m[1].split()))
-        elif m[3]:
-            lang = m[3]
+        if m[1] is not None:
+            part = " ".join(m[1].split())
+            if part:
+                query_parts.append(part)
+        elif m[2]:
+            if m[2][0] == ":":
+                query_parts.append(m[2])
+            else:
+                lang = m[2]
         else:
-            query_parts.append(m[2] or m[4])
+            query_parts.append(m[3])
 
     if lang is None:
         lang = detect_lang(" ".join(query_parts))
