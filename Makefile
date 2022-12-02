@@ -31,14 +31,14 @@ test: build
 	gzip -fk9 $<
 
 static/style.css: scss/*.scss
-	sass -s compressed scss/style.scss:static/style.css
+	sass -s compressed scss/style.scss:$@
 
 env: requirements.txt
 	touch -c env
 	test -d env || python -m venv env
 	env/bin/pip install -r requirements.txt
 ifeq ($(SYSTEM_UWSGI), 0)
-	env/bin/pip install git+https://github.com/unbit/uwsgi@uwsgi-2.0
+	env/bin/pip install uWSGI==2.0.21
 endif
 
 lid.176.bin:
