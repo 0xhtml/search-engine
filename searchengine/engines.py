@@ -206,7 +206,10 @@ class Google(XPathEngine):
                     dom = html.fromstring(response.text)
 
                     params["sc"] = self._SC_PATH(dom)[0].get("value")
-                except (httpx.RequestError, IndexError) as e:
+
+                    if params["sc"] is None:
+                        raise KeyError("element doesn't have value")
+                except (httpx.RequestError, IndexError, KeyError) as e:
                     raise EngineError(f"Couldn't get new session ({e})")
 
                 sessions.set(session_key, params["sc"], 60 * 60)  # 1hr
