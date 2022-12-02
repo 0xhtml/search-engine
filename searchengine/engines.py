@@ -189,7 +189,7 @@ class Google(XPathEngine):
     _TITLE_PATH = etree.XPath("./div/a/h3")
     _URL_PATH = etree.XPath('./div/a[@class="w-gl__result-title result-link"]')
     _TEXT_PATH = etree.XPath('./p[@class="w-gl__description"]')
-    _SC_PATH = etree.XPath('//a[@class="footer-home__logo"]')
+    _SC_PATH = etree.XPath('//input[@name="sc"]')
 
     async def _request_mixin(self, params: StrMap, headers: StrMap):
         session_key = "google_sc".encode()
@@ -205,7 +205,7 @@ class Google(XPathEngine):
 
                     dom = html.fromstring(response.text)
 
-                    params["sc"] = self._SC_PATH(dom)[0].get("href")[5:]
+                    params["sc"] = self._SC_PATH(dom)[0].get("value")
                 except (httpx.RequestError, IndexError) as e:
                     raise EngineError(f"Couldn't get new session ({e})")
 
