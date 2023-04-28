@@ -286,7 +286,7 @@ class Mojeek(XPathEngine):
     _URL = "https://www.mojeek.com/search"
 
     _RESULT_PATH = etree.XPath('//a[@class="ob"]')
-    _TITLE_PATH = etree.XPath("./h2")
+    _TITLE_PATH = etree.XPath("../h2/a")
     _URL_PATH = None
     _TEXT_PATH = etree.XPath('../p[@class="s"]')
 
