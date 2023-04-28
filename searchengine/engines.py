@@ -7,7 +7,6 @@ import jsonpath_ng
 import jsonpath_ng.ext
 from lxml import etree, html
 
-from . import sessions
 from .query import ParsedQuery
 from .results import Result
 
@@ -177,47 +176,18 @@ class JSONEngine(Engine):
 class Google(XPathEngine):
     """Search on Google using StartPage proxy."""
 
-    _URL = "https://www.startpage.com/sp/search"
+    _URL = "https://www.startpage.com/do/dsearch"
 
-    _PARAMS = {"page": "0", "cat": "web"}
+    _PARAMS = {"cat": "web", "pl": "ext-ff", "extVersion": "1.3.0"}
     _QUERY_KEY = "query"
 
     _LANG_MAP = {"de": "deutsch", "en": "english"}
     _LANG_KEY = "language"
 
-    _RESULT_PATH = etree.XPath('//div[@class="w-gl__result__main"]')
-    _TITLE_PATH = etree.XPath("./div/a/h3")
-    _URL_PATH = etree.XPath('./div/a[@class="w-gl__result-title result-link"]')
-    _TEXT_PATH = etree.XPath('./p[@class="w-gl__description"]')
-    _SC_PATH = etree.XPath('//input[@name="sc"]')
-
-    async def _request_mixin(self, params: StrMap, headers: StrMap):
-        session_key = "google_sc".encode()
-
-        with sessions.lock(sessions.Locks.GOOGLE):
-            if sessions.has_expired(session_key):
-                self._log("New session")
-
-                try:
-                    response = await self._client.get(
-                        "https://www.startpage.com", headers=self._HEADERS
-                    )
-
-                    dom = html.fromstring(response.text)
-
-                    params["sc"] = self._SC_PATH(dom)[0].get("value")
-
-                    if params["sc"] is None:
-                        raise KeyError("element doesn't have value")
-                except (httpx.RequestError, IndexError, KeyError) as e:
-                    raise EngineError(f"Couldn't get new session ({e})")
-
-                sessions.set(session_key, params["sc"], 60 * 60)  # 1hr
-            else:
-                params["sc"] = sessions.get(session_key).decode()
-
-        if "langugage" in params:
-            params["lui"] = params["language"]
+    _RESULT_PATH = etree.XPath('//div[@class="result__main css-6kz1wu"]')
+    _TITLE_PATH = etree.XPath("./a/h2")
+    _URL_PATH = etree.XPath('./div/a[@class="display-url css-5tkjkp"]')
+    _TEXT_PATH = etree.XPath('./p[@class="css-1l1gm3y"]')
 
 
 class DuckDuckGo(XPathEngine):
