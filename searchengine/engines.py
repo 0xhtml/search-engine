@@ -291,39 +291,9 @@ class Mojeek(XPathEngine):
     _TEXT_PATH = etree.XPath('../p[@class="s"]')
 
 
-class Fastbot(XPathEngine):
-    """Search on fastbot."""
-
-    _URL = "https://www.fastbot.de/index.php"
-    _METHOD = "POST"
-
-    _PARAMS = {"s": "de"}
-    _QUERY_KEY = "query"
-    _SIMPLE_QUERY = True
-
-    _HEADERS = {
-        **XPathEngine._HEADERS,
-        "Content-Type": "application/x-www-form-urlencoded",
-    }
-
-    _RESULT_PATH = etree.XPath("//b/a")
-    _TITLE_PATH = None
-    _URL_PATH = None
-
-    async def _parse_response(self, response: httpx.Response) -> list[Result]:
-        results = await super()._parse_response(response)
-
-        results = [
-            Result(result.title, result.url.split("+")[-1], result.text)
-            for result in results
-        ]
-
-        return results
-
-
 _LANG_MAP = {
     "*": {Google, DuckDuckGo, Mojeek},
-    "de": {Qwant, Fastbot},
+    "de": {Qwant},
     "en": {Qwant, Alexandria},
 }
 
