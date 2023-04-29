@@ -63,9 +63,8 @@ class Engine:
         headers = {**self._HEADERS}
 
         if hasattr(self, "_LANG_MAP"):
-            lang_name = self._LANG_MAP.get(query.lang, None)
-            if lang_name is not None:
-                params[self._LANG_KEY] = lang_name
+            lang_name = self._LANG_MAP.get(query.lang, "")
+            params[self._LANG_KEY] = lang_name
 
         await self._request_mixin(params, headers)
 
@@ -193,7 +192,7 @@ class Google(XPathEngine):
 class DuckDuckGo(XPathEngine):
     """Search on DuckDuckGo directly."""
 
-    _URL = "https://lite.duckduckgo.com/lite"
+    _URL = "https://lite.duckduckgo.com/lite/"
     _METHOD = "POST"
 
     _PARAMS = {"df": ""}
@@ -203,7 +202,7 @@ class DuckDuckGo(XPathEngine):
         "Content-Type": "application/x-www-form-urlencoded",
     }
 
-    _LANG_MAP = {"de": "de-DE", "en": "en-US"}
+    _LANG_MAP = {"de": "de-de", "en": "us-en"}
     _LANG_KEY = "kl"
 
     _RESULT_PATH = etree.XPath('//tr[not(@class)]/td/a[@class="result-link"]')
@@ -211,13 +210,17 @@ class DuckDuckGo(XPathEngine):
     _URL_PATH = None
     _TEXT_PATH = etree.XPath("../../following::tr")
 
+    async def _request_mixin(self, params: StrMap, headers: StrMap):
+        if params["kl"]:
+            headers["Cookie"] = "kl=" + params["kl"]
+
     async def _parse_response(self, response: httpx.Response) -> list[Result]:
         try:
             await self._client.get(
                 "https://duckduckgo.com/t/sl_l", headers=super()._HEADERS
             )
         except httpx.RequestError as e:
-            raise EngineError(f"Request error on ping ({e})")
+            self._log(f"Request error on ping ({e})")
 
         return await super()._parse_response(response)
 
