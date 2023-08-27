@@ -4,6 +4,13 @@ from typing import NamedTuple
 
 from .lang import detect_lang
 
+_MAX_RESULTS = 12
+_ENGINE_WEIGHTS = {"Google": 1.3, "Bing": 1.3}
+
+
+def _get_engine_weight(engine: str) -> float:
+    return _ENGINE_WEIGHTS.get(engine, 1.0)
+
 
 class Result(NamedTuple):
     """Single result returned by a search."""
@@ -37,14 +44,8 @@ class RatedResult:
         """Run additional result evaluation and update rating."""
         if detect_lang(f"{self.result.title} {self.result.text}") == lang:
             self.rating += 2
-
-
-_MAX_RESULTS = 12
-_ENGINE_WEIGHTS = {"Google": 1.2, "DuckDuckGo": 1.2}
-
-
-def _get_engine_weight(engine: str) -> float:
-    return _ENGINE_WEIGHTS.get(engine, 1.0)
+        if "wikipedia.org" in self.result.url:
+            self.rating *= 1.1
 
 
 def order_results(
@@ -60,13 +61,11 @@ def order_results(
             else:
                 rated_results[result.url].update(result, i, engine)
 
-    for url in rated_results.keys():
-        rated_results[url].eval(lang)
+    for result in rated_results.values():
+        result.eval(lang)
 
-    sorted_rated_results = sorted(
+    return sorted(
         rated_results.values(),
         key=lambda rated_result: rated_result.rating,
         reverse=True,
-    )[:10]
-
-    return sorted_rated_results
+    )[:_MAX_RESULTS]
