@@ -1,6 +1,7 @@
 """Module to perform a search."""
 
-from typing import Optional, Type
+import json
+from typing import Optional, Type, Union
 
 import httpx
 import jsonpath_ng
@@ -9,8 +10,6 @@ from lxml import etree, html
 
 from .query import ParsedQuery
 from .results import Result
-
-StrMap = dict[str, str]
 
 
 class EngineError(Exception):
@@ -23,18 +22,13 @@ class Engine:
     _URL: str
     _METHOD: str = "GET"
 
-    _PARAMS: StrMap = {}
+    _PARAMS: dict[str, Union[str, bool]] = {}
     _QUERY_KEY: str = "q"
     _SIMPLE_QUERY: bool = False
 
-    _HEADERS: StrMap = {
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image"
-        "/avif,image/webp,*/*;q=0.8",
-        "User-Agent": "Mozilla/5.0 (Android 12; Mobile; rv:101.0) Gecko/101.0 "
-        "Firefox/101.0",
-    }
+    _HEADERS: dict[str, str] = {}
 
-    _LANG_MAP: StrMap
+    _LANG_MAP: dict[str, str]
     _LANG_KEY: str
 
     def __init__(self, client: httpx.AsyncClient):
@@ -47,9 +41,6 @@ class Engine:
             print(f"[!] [{cls.__name__}] {msg}")
         else:
             print(f"[!] [{cls.__name__}] [{tag}] {msg}")
-
-    async def _request_mixin(self, params: StrMap, headers: StrMap):
-        pass
 
     async def _parse_response(self, response: httpx.Response) -> list[Result]:
         raise NotImplementedError
@@ -66,17 +57,21 @@ class Engine:
             lang_name = self._LANG_MAP.get(query.lang, "")
             params[self._LANG_KEY] = lang_name
 
-        await self._request_mixin(params, headers)
+        data = (
+            {"data": json.dumps(params)}
+            if self._METHOD == "POST"
+            else {"params": params}
+        )
 
         try:
             response = await self._client.request(
                 self._METHOD,
                 self._URL,
-                **{"data" if self._METHOD == "POST" else "params": params},
                 headers=headers,
+                **data,  # type: ignore
             )
         except httpx.RequestError as e:
-            raise EngineError(f"Request error on search ({e})")
+            raise EngineError(f"Request error on search ({type(e).__name__})")
 
         if not response.is_success:
             raise EngineError(
@@ -89,6 +84,13 @@ class Engine:
 
 class XPathEngine(Engine):
     """Base class for a x-path search engine."""
+
+    _HEADERS = {
+        "Accept": "text/html,application/xhtml+xml,application/xml;"
+        "q=0.9,image/avif,image/webp,*/*;q=0.8",
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:109.0) "
+        "Gecko/20100101 Firefox/112.0",
+    }
 
     _RESULT_PATH: etree.XPath
     _TITLE_PATH: Optional[etree.XPath]
@@ -149,7 +151,7 @@ class JSONEngine(Engine):
     _RESULT_PATH: jsonpath_ng.JSONPath
     _TITLE_KEY: str = "title"
     _URL_KEY: str = "url"
-    _TEXT_KEY: str
+    _TEXT_KEY: str = "snippet"
 
     async def _parse_response(self, response: httpx.Response) -> list[Result]:
         json = response.json()
@@ -183,78 +185,31 @@ class Google(XPathEngine):
     _LANG_MAP = {"de": "deutsch", "en": "english"}
     _LANG_KEY = "language"
 
-    _RESULT_PATH = etree.XPath('//div[@class="result__main css-6kz1wu"]')
-    _TITLE_PATH = etree.XPath("./a/h2")
-    _URL_PATH = etree.XPath('./div/a[@class="display-url css-5tkjkp"]')
-    _TEXT_PATH = etree.XPath('./p[@class="css-1l1gm3y"]')
+    _RESULT_PATH = etree.XPath('//div[@class="w-gl__result__main"]')
+    _TITLE_PATH = etree.XPath("./div/a/h3")
+    _URL_PATH = etree.XPath('./div/a[@class="w-gl__result-url result-link"]')
+    _TEXT_PATH = etree.XPath("./p")
 
 
-class DuckDuckGo(XPathEngine):
-    """Search on DuckDuckGo directly."""
+class Bing(JSONEngine):
+    """Search on Bing using the API."""
 
-    _URL = "https://lite.duckduckgo.com/lite/"
-    _METHOD = "POST"
-
-    _PARAMS = {"df": ""}
+    _URL = "https://api.bing.microsoft.com/v7.0/search"
 
     _HEADERS = {
-        **XPathEngine._HEADERS,
-        "Content-Type": "application/x-www-form-urlencoded",
+        "Ocp-Apim-Subscription-Key": "API-KEY",
+        **JSONEngine._HEADERS,
     }
 
-    _LANG_MAP = {"de": "de-de", "en": "us-en"}
-    _LANG_KEY = "kl"
+    _LANG_MAP = {"de": "de-DE", "en": "en-US"}
+    _LANG_KEY = "mkt"
 
-    _RESULT_PATH = etree.XPath('//tr[not(@class)]/td/a[@class="result-link"]')
-    _TITLE_PATH = None
-    _URL_PATH = None
-    _TEXT_PATH = etree.XPath("../../following::tr")
-
-    async def _request_mixin(self, params: StrMap, headers: StrMap):
-        if params["kl"]:
-            headers["Cookie"] = "kl=" + params["kl"]
-
-    async def _parse_response(self, response: httpx.Response) -> list[Result]:
-        try:
-            await self._client.get(
-                "https://duckduckgo.com/t/sl_l", headers=super()._HEADERS
-            )
-        except httpx.RequestError as e:
-            self._log(f"Request error on ping ({e})")
-
-        return await super()._parse_response(response)
-
-
-class Qwant(JSONEngine):
-    """Search on Qwant supporting de and en only."""
-
-    _URL = "https://api.qwant.com/v3/search/web"
-
-    _PARAMS = {"count": "10", "offset": "0"}
-
-    _LANG_MAP = {"de": "de_DE", "en": "en_US"}
-    _LANG_KEY = "locale"
-
-    _RESULT_PATH = jsonpath_ng.ext.parse(
-        "data.result.items.mainline[?(@.type == web)].items[*]"
-    )
-    _TEXT_KEY = "desc"
-
-
-class Alexandria(JSONEngine):
-    """Search on alexandria an english only search engine."""
-
-    _URL = "https://api.alexandria.org"
-
-    _PARAMS = {"a": "1", "c": "a"}
-    _SIMPLE_QUERY = True
-
-    _RESULT_PATH = jsonpath_ng.parse("results[*]")
-    _TEXT_KEY = "snippet"
+    _RESULT_PATH = jsonpath_ng.ext.parse("webPages.value[*]")
+    _TITLE_KEY = "name"
 
 
 class Mojeek(XPathEngine):
-    """Search on mojeek."""
+    """Search on Mojeek."""
 
     _URL = "https://www.mojeek.com/search"
 
@@ -264,10 +219,44 @@ class Mojeek(XPathEngine):
     _TEXT_PATH = etree.XPath('../p[@class="s"]')
 
 
+class Alexandria(JSONEngine):
+    """Search on Alexandria an English only search engine."""
+
+    _URL = "https://api.alexandria.org"
+
+    _PARAMS = {"a": "1", "c": "a"}
+    _SIMPLE_QUERY = True
+
+    _RESULT_PATH = jsonpath_ng.ext.parse("results[*]")
+
+
+class Stract(JSONEngine):
+    """Search on stract an English only search engine."""
+
+    _URL = "https://trystract.com/beta/api/search"
+    _METHOD = "POST"
+
+    _PARAMS = {"safeSearch": True}
+
+    _HEADERS = {
+        **JSONEngine._HEADERS,
+        "Content-Type": "application/json",
+    }
+
+    _QUERY_KEY = "query"
+    _SIMPLE_QUERY = True
+
+    _LANG_MAP = {"de": "Germany", "en": "US"}
+    _LANG_KEY = "selectedRegion"
+
+    _RESULT_PATH = jsonpath_ng.ext.parse("webpages[*]")
+    _TEXT_KEY = "body"
+
+
 _LANG_MAP = {
-    "*": {Google, DuckDuckGo, Mojeek},
-    "de": {Qwant},
-    "en": {Qwant, Alexandria},
+    "*": {Google, Bing, Mojeek},
+    "de": {Stract},
+    "en": {Stract, Alexandria},
 }
 
 
