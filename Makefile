@@ -38,7 +38,7 @@ env: requirements.txt
 	test -d env || python -m venv env
 	env/bin/pip install -r requirements.txt
 ifeq ($(SYSTEM_UWSGI), 0)
-	env/bin/pip install uWSGI==2.0.21
+	env/bin/pip install uWSGI==2.0.22
 endif
 
 lid.176.bin:
