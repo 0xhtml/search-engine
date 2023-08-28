@@ -31,6 +31,11 @@ class Engine:
     _LANG_MAP: dict[str, str]
     _LANG_KEY: str
 
+    @staticmethod
+    def normalize(text: str, sep: str = " ") -> str:
+        """Normalize text."""
+        return sep.join(text.splitlines()).strip()
+
     def __init__(self, client: httpx.AsyncClient):
         """Initialize engine."""
         self._client = client
@@ -101,7 +106,7 @@ class XPathEngine(Engine):
     def _html_to_string(elem: html.Element) -> str:
         return html.tostring(
             elem, encoding="unicode", method="text", with_tail=False
-        ).strip()
+        )
 
     @staticmethod
     def _get_elem(
@@ -125,12 +130,12 @@ class XPathEngine(Engine):
             url = self._get_elem(result, self._URL_PATH)
             if url is None:
                 continue
-            url = url.attrib.get("href")
+            url = self.normalize(url.attrib.get("href"), "")
 
             title = self._get_elem(result, self._TITLE_PATH)
             if title is None:
                 continue
-            title = self._html_to_string(title)
+            title = self.normalize(self._html_to_string(title))
 
             if (
                 not hasattr(self, "_TEXT_PATH")
@@ -138,7 +143,7 @@ class XPathEngine(Engine):
             ):
                 text = ""
             else:
-                text = self._html_to_string(text)
+                text = self.normalize(self._html_to_string(text))
 
             results.append(Result(title, url, text))
 
@@ -159,15 +164,15 @@ class JSONEngine(Engine):
         results = []
 
         for result in self._RESULT_PATH.find(json):
-            url = result.value.get(self._URL_KEY, "")
+            url = self.normalize(result.value.get(self._URL_KEY, ""), "")
             if not url:
                 continue
 
-            title = result.value.get(self._TITLE_KEY, "")
+            title = self.normalize(result.value.get(self._TITLE_KEY, ""))
             if not title:
                 continue
 
-            text = result.value.get(self._TEXT_KEY, "")
+            text = self.normalize(result.value.get(self._TEXT_KEY, ""))
 
             results.append(Result(title, url, text))
 
