@@ -44,6 +44,10 @@ class RatedResult:
         """Run additional result evaluation and update rating."""
         if detect_lang(f"{self.result.title} {self.result.text}") == lang:
             self.rating += 2
+        if self.result.url.startswith("https://docs.python.org"):
+            self.rating *= 1.5
+        if self.result.url.startswith("https://stackoverflow.com"):
+            self.rating *= 1.3
         if "wikipedia.org" in self.result.url:
             self.rating *= 1.1
 
