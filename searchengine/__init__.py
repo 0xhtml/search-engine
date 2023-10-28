@@ -42,23 +42,8 @@ def index():
     return render_template("index.html", title=_("Search"))
 
 
-def _run(coro):
-    loop = asyncio.events.new_event_loop()
-    try:
-        asyncio.events.set_event_loop(loop)
-        return loop.run_until_complete(coro)
-    finally:
-        try:
-            asyncio.runners._cancel_all_tasks(loop)
-            loop.run_until_complete(loop.shutdown_asyncgens())
-            loop.run_until_complete(loop.shutdown_default_executor())
-        finally:
-            asyncio.events.set_event_loop(None)
-            loop.close()
-
-
 @application.route("/search")
-def search():
+async def search():
     """Perform a search and return the search result page."""
     query = request.args.get("q", None, str)
 
@@ -86,16 +71,14 @@ def search():
 
         return type(engine).__name__, []
 
-    async def async_results():
-        async with httpx.AsyncClient(
-            limits=httpx.Limits(max_connections=10),
-            timeout=httpx.Timeout(5, pool=None),
-        ) as client:
-            return await asyncio.gather(
-                *[async_search(engine(client)) for engine in lang_engines]
-            )
+    async with httpx.AsyncClient(
+        limits=httpx.Limits(max_connections=10),
+        timeout=httpx.Timeout(5, pool=None),
+    ) as client:
+        results = await asyncio.gather(
+            *[async_search(engine(client)) for engine in lang_engines]
+        )
 
-    results = _run(async_results())
     results = order_results(results, parsed_query.lang)
 
     return render_template(
