@@ -2,10 +2,20 @@
 
 from typing import NamedTuple
 
+import httpx
+
 from .lang import detect_lang
+
+
+def _load_domains(url: str) -> set[str]:
+    return {x for x in httpx.get(url).text.splitlines() if not x.startswith("#")}
+
 
 _MAX_RESULTS = 12
 _ENGINE_WEIGHTS = {"Google": 1.3, "Bing": 1.3}
+_SPAM_DOMAINS = _load_domains(
+    "https://github.com/quenhus/uBlock-Origin-dev-filter/raw/main/dist/other_format/domains/global.txt",
+) | _load_domains("https://github.com/rimu/no-qanon/raw/master/domains.txt")
 
 
 def _get_engine_weight(engine: str) -> float:
@@ -44,12 +54,16 @@ class RatedResult:
         """Run additional result evaluation and update rating."""
         if detect_lang(f"{self.result.title} {self.result.text}") == lang:
             self.rating += 2
-        if self.result.url.startswith("https://docs.python.org"):
+
+        host = httpx.URL(self.result.url).host
+        if host == "docs.python.org":
             self.rating *= 1.5
-        if self.result.url.startswith("https://stackoverflow.com"):
+        elif host == "stackoverflow.com":
             self.rating *= 1.3
-        if "wikipedia.org" in self.result.url:
+        elif host.endswith(".wikipedia.org"):
             self.rating *= 1.1
+        elif host in _SPAM_DOMAINS:
+            self.rating *= 0.6
 
 
 def order_results(
