@@ -224,19 +224,8 @@ class Mojeek(XPathEngine):
     _TEXT_PATH = etree.XPath('../p[@class="s"]')
 
 
-class Alexandria(JSONEngine):
-    """Search on Alexandria an English only search engine."""
-
-    _URL = "https://api.alexandria.org"
-
-    _PARAMS = {"a": "1", "c": "a"}
-    _SIMPLE_QUERY = True
-
-    _RESULT_PATH = jsonpath_ng.ext.parse("results[*]")
-
-
 class Stract(JSONEngine):
-    """Search on stract an English only search engine."""
+    """Search on stract."""
 
     _URL = "https://trystract.com/beta/api/search"
     _METHOD = "POST"
@@ -258,10 +247,51 @@ class Stract(JSONEngine):
     _TEXT_KEY = "body"
 
 
+class RightDao(XPathEngine):
+    """Search on Right Dao."""
+
+    _URL = "https://rightdao.com/search"
+
+    _RESULT_PATH = etree.XPath('//div[@class="item"]/div[@class="description"]')
+    _TITLE_PATH = etree.XPath('../div[@class="title"]/a')
+    _URL_PATH = _TITLE_PATH
+    _TEXT_PATH = None
+
+
+class Alexandria(JSONEngine):
+    """Search on Alexandria an English only search engine."""
+
+    _URL = "https://api.alexandria.org"
+
+    _PARAMS = {"a": "1", "c": "a"}
+    _SIMPLE_QUERY = True
+
+    _RESULT_PATH = jsonpath_ng.ext.parse("results[*]")
+
+
+class Yep(JSONEngine):
+    """Search on Yep."""
+
+    _URL = "https://api.yep.com/fs/2/search"
+    _PARAMS = {
+        "client": "web",
+        "gl": "US",
+        "no_correct": "true",
+        "safeSearch": "strict",
+        "type": "web",
+    }
+    _SIMPLE_QUERY = True
+
+    _LANG_MAP = {"de": "DE", "en": "US"}
+    _LANG_KEY = "gl"
+
+    _RESULT_PATH = jsonpath_ng.ext.parse('[1].results[?type = "Organic"]')
+
+
 _LANG_MAP = {
-    "*": {Google, Bing, Mojeek},
+    "*": {Google, Bing, Mojeek, Yep},
     "de": {Stract},
-    "en": {Stract, Alexandria},
+    "en": {Stract, Alexandria, RightDao},
 }
 
 
