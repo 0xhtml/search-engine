@@ -4,5 +4,6 @@
     <Description>{{ _("A (meta) search engine") }}</Description>
     <InputEncoding>utf-8</InputEncoding>
     <Url type="text/html" template="{{ url_for("search", q="", _external=True) }}{searchTerms}"/>
+    <Url type="application/x-suggestions+json" template="https://duckduckgo.com/ac/?q={searchTerms}&amp;type=list"/>
     <moz:SearchForm>{{ url_for("index", _external=True) }}</moz:SearchForm>
 </OpenSearchDescription>
