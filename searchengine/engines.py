@@ -275,7 +275,6 @@ class Yep(JSONEngine):
     _URL = "https://api.yep.com/fs/2/search"
     _PARAMS = {
         "client": "web",
-        "gl": "US",
         "no_correct": "true",
         "safeSearch": "strict",
         "type": "web",
