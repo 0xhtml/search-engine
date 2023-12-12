@@ -8,7 +8,11 @@ from .lang import detect_lang
 
 
 def _load_domains(url: str) -> set[str]:
-    return {x for x in httpx.get(url).text.splitlines() if not x.startswith("#")}
+    return {
+        x.removeprefix("www.")
+        for x in httpx.get(url).text.splitlines()
+        if not x.startswith("#")
+    }
 
 
 _MAX_RESULTS = 12
@@ -52,7 +56,7 @@ class RatedResult:
         if detect_lang(f"{self.result.title} {self.result.text}") == lang:
             self.rating += 2
 
-        host = httpx.URL(self.result.url).host
+        host = httpx.URL(self.result.url).host.removeprefix("www.")
         if host == "docs.python.org":
             self.rating *= 1.5
         elif host == "stackoverflow.com":
