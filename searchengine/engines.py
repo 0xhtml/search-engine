@@ -1,7 +1,7 @@
 """Module to perform a search."""
 
 import json
-from typing import Optional, Type, Union
+from typing import ClassVar, Optional, Type, Union
 
 import httpx
 import jsonpath_ng
@@ -18,6 +18,8 @@ class EngineError(Exception):
 
 class Engine:
     """Base class for a search engine."""
+
+    WEIGHT: ClassVar = 1.0
 
     _URL: str
     _METHOD: str = "GET"
@@ -182,6 +184,8 @@ class JSONEngine(Engine):
 class Google(XPathEngine):
     """Search on Google using StartPage proxy."""
 
+    WEIGHT = 1.3
+
     _URL = "https://www.startpage.com/do/dsearch"
 
     _PARAMS = {"cat": "web", "pl": "ext-ff", "extVersion": "1.3.0"}
@@ -198,6 +202,8 @@ class Google(XPathEngine):
 
 class Bing(JSONEngine):
     """Search on Bing using the API."""
+
+    WEIGHT = 1.3
 
     _URL = "https://api.bing.microsoft.com/v7.0/search"
 

@@ -14,7 +14,7 @@
             <h3>{{ rated_result.result.title | highlight(parsed_query) }}</h3>
         </a>
         <p>{{ rated_result.result.text | highlight(parsed_query) }}</p>
-        <small>{{ "{:.1f}".format(rated_result.rating) }} - {{ rated_result.engines | sort | join(" ") }}</small>
+        <small>{{ "{:.1f}".format(rated_result.rating) }} - {{ rated_result.engines | map(attribute="__name__") | sort | join(" ") }}</small>
     </li>
     {% endfor %}
 </ul>
@@ -23,7 +23,7 @@
     <h4>{{ _("Error") }}</h4>
     <ul>
         {% for error in engine_errors %}
-        <li>{{ error }}</li>
+        <li>{{ error[0].__name__ }}: {{ error[1] }}</li>
         {% endfor %}
     </ul>
 </div>

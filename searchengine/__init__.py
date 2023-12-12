@@ -6,9 +6,9 @@ import gettext
 import httpx
 from flask import Flask, make_response, render_template, request
 
-from .engines import EngineError, get_lang_engines
-from .query import parse_query
-from .results import order_results
+from .engines import Engine, EngineError, get_lang_engines
+from .query import ParsedQuery, parse_query
+from .results import Result, order_results
 from .template_filter import TEMPLATE_FILTER_MAP
 
 _ = gettext.translation("msg", "locales", fallback=True).gettext
@@ -42,6 +42,16 @@ def index():
     return render_template("index.html", title=_("Search"))
 
 
+async def _engine_search(
+    engine: type[Engine], client: httpx.AsyncClient, query: ParsedQuery
+) -> tuple[type[Engine], list[Result] | EngineError]:
+    try:
+        return engine, await engine(client).search(query)
+    except EngineError as e:
+        engine._log(str(e))
+        return engine, e
+
+
 @application.route("/search")
 async def search():
     """Perform a search and return the search result page."""
@@ -59,25 +69,21 @@ async def search():
 
     lang_engines = get_lang_engines(parsed_query.lang)
 
-    errors = []
-
-    async def async_search(engine):
-        try:
-            return type(engine).__name__, await engine.search(parsed_query)
-        except EngineError as e:
-            nonlocal errors
-            errors.append(f"{type(engine).__name__}: {e}")
-            engine._log(e)
-
-        return type(engine).__name__, []
-
     async with httpx.AsyncClient(
         limits=httpx.Limits(max_connections=10),
         timeout=httpx.Timeout(5, pool=None),
     ) as client:
-        results = await asyncio.gather(
-            *[async_search(engine(client)) for engine in lang_engines]
+        results_and_errors = await asyncio.gather(
+            *[_engine_search(engine, client, parsed_query) for engine in lang_engines]
         )
+
+    errors = []
+    results = []
+    for item in results_and_errors:
+        if isinstance(item[1], EngineError):
+            errors.append(item)
+        else:
+            results.append(item)
 
     results = order_results(results, parsed_query.lang)
 

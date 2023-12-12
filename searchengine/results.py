@@ -1,6 +1,6 @@
 """Module for results."""
 
-from typing import NamedTuple
+from typing import NamedTuple, Optional
 
 import httpx
 
@@ -12,14 +12,9 @@ def _load_domains(url: str) -> set[str]:
 
 
 _MAX_RESULTS = 12
-_ENGINE_WEIGHTS = {"Google": 1.3, "Bing": 1.3}
 _SPAM_DOMAINS = _load_domains(
     "https://github.com/quenhus/uBlock-Origin-dev-filter/raw/main/dist/other_format/domains/global.txt",
 ) | _load_domains("https://github.com/rimu/no-qanon/raw/master/domains.txt")
-
-
-def _get_engine_weight(engine: str) -> float:
-    return _ENGINE_WEIGHTS.get(engine, 1.0)
 
 
 class Result(NamedTuple):
@@ -33,25 +28,27 @@ class Result(NamedTuple):
 class RatedResult:
     """Combined result with a rating and set of engines associated."""
 
-    result: Result
+    result: Optional[Result]
     rating: float
-    engines: set[str]
+    engines: set[type["Engine"]]
 
-    def __init__(self, result: Result, position: int, engine: str):
-        """Initialize rated result based on result from engine and position."""
-        self.result = result
-        self.rating = (_MAX_RESULTS - position) * _get_engine_weight(engine)
-        self.engines = {engine}
+    def __init__(self) -> None:
+        """Initialize empty rated result."""
+        self.result = None
+        self.rating = 0
+        self.engines = set()
 
-    def update(self, result: Result, position: int, engine: str):
+    def update(self, result: Result, position: int, engine: type["Engine"]) -> None:
         """Update rated result by combining the result from another engine."""
-        if len(result.text) > len(self.result.text):
+        if self.result is None or len(result.text) > len(self.result.text):
             self.result = result
-        self.rating += (_MAX_RESULTS - position) * _get_engine_weight(engine)
+        self.rating += (_MAX_RESULTS - position) * engine.WEIGHT
         self.engines.add(engine)
 
-    def eval(self, lang: str):
+    def eval(self, lang: str) -> None:
         """Run additional result evaluation and update rating."""
+        assert self.result is not None
+
         if detect_lang(f"{self.result.title} {self.result.text}") == lang:
             self.rating += 2
 
@@ -67,17 +64,16 @@ class RatedResult:
 
 
 def order_results(
-    results: list[tuple[str, list[Result]]], lang: str
+    results: list[tuple[type["Engine"], list[Result]]], lang: str
 ) -> list[RatedResult]:
     """Combine results from all engines and order them."""
     rated_results: dict[str, RatedResult] = {}
 
     for engine, engine_results in results:
         for i, result in enumerate(engine_results[:_MAX_RESULTS]):
-            if result.url not in rated_results:
-                rated_results[result.url] = RatedResult(result, i, engine)
-            else:
-                rated_results[result.url].update(result, i, engine)
+            rated_results.setdefault(result.url, RatedResult()).update(
+                result, i, engine
+            )
 
     for result in rated_results.values():
         result.eval(lang)
