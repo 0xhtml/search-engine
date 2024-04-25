@@ -12,7 +12,7 @@ class ParsedQuery(NamedTuple):
     query_parts: list[str]
     lang: str
 
-    def to_string(self, simple: bool):
+    def to_string(self, simple: bool) -> str:
         """Convert query parts to (simple) query string."""
         if simple:
             return " ".join(self.query_parts)

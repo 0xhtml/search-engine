@@ -20,9 +20,7 @@ application.jinja_env.globals["_"] = _
 
 def error(message: str):
     """Return error page."""
-    return render_template(
-        "index.html", title=_("Error"), error_message=message
-    )
+    return render_template("index.html", title=_("Error"), error_message=message)
 
 
 @application.errorhandler(404)

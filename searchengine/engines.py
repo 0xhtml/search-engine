@@ -21,29 +21,29 @@ class Engine:
 
     WEIGHT: ClassVar = 1.0
 
-    _URL: str
-    _METHOD: str = "GET"
+    _URL: ClassVar[str]
+    _METHOD: ClassVar[str] = "GET"
 
-    _PARAMS: dict[str, Union[str, bool]] = {}
-    _QUERY_KEY: str = "q"
-    _SIMPLE_QUERY: bool = False
+    _PARAMS: ClassVar[dict[str, Union[str, bool]]] = {}
+    _QUERY_KEY: ClassVar[str] = "q"
+    _SIMPLE_QUERY: ClassVar[bool] = False
 
-    _HEADERS: dict[str, str] = {}
+    _HEADERS: ClassVar[dict[str, str]] = {}
 
-    _LANG_MAP: dict[str, str]
-    _LANG_KEY: str
+    _LANG_MAP: ClassVar[dict[str, str]]
+    _LANG_KEY: ClassVar[str]
 
     @staticmethod
     def normalize(text: str, sep: str = " ") -> str:
         """Normalize text."""
         return sep.join(text.splitlines()).strip()
 
-    def __init__(self, client: httpx.AsyncClient):
+    def __init__(self, client: httpx.AsyncClient) -> None:
         """Initialize engine."""
         self._client = client
 
     @classmethod
-    def _log(cls, msg: str, tag: Optional[str] = None):
+    def _log(cls, msg: str, tag: Optional[str] = None) -> None:
         if tag is None:
             print(f"[!] [{cls.__name__}] {msg}")
         else:
@@ -78,12 +78,12 @@ class Engine:
                 **data,  # type: ignore
             )
         except httpx.RequestError as e:
-            raise EngineError(f"Request error on search ({type(e).__name__})")
+            raise EngineError(f"Request error on search ({type(e).__name__})") from e
 
         if not response.is_success:
             raise EngineError(
                 "Didn't receive status code 2xx"
-                f" ({response.status_code} {response.reason_phrase})"
+                f" ({response.status_code} {response.reason_phrase})",
             )
 
         return await self._parse_response(response)
@@ -99,15 +99,18 @@ class XPathEngine(Engine):
         "Gecko/20100101 Firefox/112.0",
     }
 
-    _RESULT_PATH: etree.XPath
-    _TITLE_PATH: Optional[etree.XPath]
-    _URL_PATH: Optional[etree.XPath]
-    _TEXT_PATH: Optional[etree.XPath]
+    _RESULT_PATH: ClassVar[etree.XPath]
+    _TITLE_PATH: ClassVar[Optional[etree.XPath]]
+    _URL_PATH: ClassVar[Optional[etree.XPath]]
+    _TEXT_PATH: ClassVar[Optional[etree.XPath]]
 
     @staticmethod
     def _html_to_string(elem: html.Element) -> str:
         return html.tostring(
-            elem, encoding="unicode", method="text", with_tail=False
+            elem,
+            encoding="unicode",
+            method="text",
+            with_tail=False,
         )
 
     @staticmethod
@@ -155,10 +158,10 @@ class XPathEngine(Engine):
 class JSONEngine(Engine):
     """Base class for search engine using JSON."""
 
-    _RESULT_PATH: jsonpath_ng.JSONPath
-    _TITLE_KEY: str = "title"
-    _URL_KEY: str = "url"
-    _TEXT_KEY: str = "snippet"
+    _RESULT_PATH: ClassVar[jsonpath_ng.JSONPath]
+    _TITLE_KEY: ClassVar[str] = "title"
+    _URL_KEY: ClassVar[str] = "url"
+    _TEXT_KEY: ClassVar[str] = "snippet"
 
     async def _parse_response(self, response: httpx.Response) -> list[Result]:
         json = response.json()
@@ -207,10 +210,7 @@ class Bing(JSONEngine):
 
     _URL = "https://api.bing.microsoft.com/v7.0/search"
 
-    _HEADERS = {
-        "Ocp-Apim-Subscription-Key": "API-KEY",
-        **JSONEngine._HEADERS,
-    }
+    _HEADERS = {"Ocp-Apim-Subscription-Key": "API-KEY"}
 
     _LANG_MAP = {"de": "de-DE", "en": "en-US"}
     _LANG_KEY = "mkt"
@@ -238,10 +238,7 @@ class Stract(JSONEngine):
 
     _PARAMS = {"safeSearch": True}
 
-    _HEADERS = {
-        **JSONEngine._HEADERS,
-        "Content-Type": "application/json",
-    }
+    _HEADERS = {"Content-Type": "application/json"}
 
     _QUERY_KEY = "query"
     _SIMPLE_QUERY = True
