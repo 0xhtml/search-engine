@@ -1,11 +1,3 @@
-SYSTEM_UWSGI=0
-ifeq ($(SYSTEM_UWSGI), 0)
-	UWSGI=env/bin/uwsgi
-else
-	UWSGI=uwsgi
-endif
-
-
 .PHONY: build build_locales build_static run test
 
 
@@ -17,7 +9,7 @@ build_static: static/style.css.gz static/logo.png.gz
 
 
 run: build
-	$(UWSGI) --ini uwsgi.ini --http 127.0.0.1:5000
+	uwsgi --ini uwsgi.ini --http 127.0.0.1:5000
 
 
 test: build
@@ -37,9 +29,6 @@ env: requirements.txt
 	touch -c env
 	test -d env || python -m venv env
 	env/bin/pip install -r requirements.txt
-ifeq ($(SYSTEM_UWSGI), 0)
-	env/bin/pip install uWSGI==2.0.22
-endif
 
 lid.176.bin:
-	wget https://dl.fbaipublicfiles.com/fasttext/supervised-models/lid.176.bin
+	wget https://dl.fbaipublicfiles.com/fasttext/supervised-models/$@
