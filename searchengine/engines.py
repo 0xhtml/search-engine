@@ -191,15 +191,15 @@ class Google(XPathEngine):
 
     _URL = "https://www.startpage.com/do/dsearch"
 
-    _PARAMS = {"cat": "web", "pl": "ext-ff", "extVersion": "1.3.0"}
+    _PARAMS = {"cat": "web", "pl": "ext-ff", "extVersion": "1.1.7"}
     _QUERY_KEY = "query"
 
     _LANG_MAP = {"de": "deutsch", "en": "english"}
     _LANG_KEY = "language"
 
-    _RESULT_PATH = etree.XPath('//div[@class="w-gl__result__main"]')
-    _TITLE_PATH = etree.XPath("./div/a/h3")
-    _URL_PATH = etree.XPath('./div/a[@class="w-gl__result-url result-link"]')
+    _RESULT_PATH = etree.XPath('//div[starts-with(@class,"result")]')
+    _TITLE_PATH = etree.XPath("./a/h2")
+    _URL_PATH = etree.XPath('./a')
     _TEXT_PATH = etree.XPath("./p")
 
 
