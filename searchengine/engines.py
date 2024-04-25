@@ -233,7 +233,7 @@ class Mojeek(XPathEngine):
 class Stract(JSONEngine):
     """Search on stract."""
 
-    _URL = "https://trystract.com/beta/api/search"
+    _URL = "https://stract.com/beta/api/search"
     _METHOD = "POST"
 
     _PARAMS = {"safeSearch": True}
