@@ -293,6 +293,8 @@ class Yep(JSONEngine):
     }
     _SIMPLE_QUERY = True
 
+    _HEADERS = {"Referer": "https://yep.com/"}
+
     _LANG_MAP = {"de": "DE", "en": "US"}
     _LANG_KEY = "gl"
 
@@ -300,9 +302,20 @@ class Yep(JSONEngine):
     _TEXT_KEY = "snippet"
 
 
+class YepImages(Yep):
+    """Search images on Yep."""
+
+    _PARAMS = {**Yep._PARAMS, "type": "images"}
+
+    _RESULT_PATH = jsonpath_ng.ext.parse('[1].results[?type="Image"]')
+    _URL_KEY = "host_page"
+    _TEXT_KEY = None
+    _SRC_KEY = "src"
+
+
 _MODE_MAP = {
     SearchMode.WEB: {Bing, Mojeek, Stract, Alexandria, RightDao, Yep},
-    SearchMode.IMAGES: {BingImages, MojeekImages},
+    SearchMode.IMAGES: {BingImages, MojeekImages, YepImages},
 }
 
 
