@@ -12,4 +12,4 @@ def detect_lang(text: str) -> str:
     if not _MODEL:
         _MODEL = fasttext.load_model("lid.176.bin")
 
-    return _MODEL.predict(text)[0][0].removeprefix("__label__")
+    return _MODEL.predict(" ".join(text.splitlines()))[0][0].removeprefix("__label__")
