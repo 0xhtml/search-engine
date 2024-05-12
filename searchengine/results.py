@@ -46,7 +46,7 @@ class RatedResult:
 
     def update(self, result: Result, position: int, engine: type["Engine"]) -> None:
         """Update rated result by combining the result from another engine."""
-        if self.result is None or len(result.text) > len(self.result.text):
+        if engine.WEIGHT > max((e.WEIGHT for e in self.engines), default=0):
             self.result = result
         self.rating += (_MAX_RESULTS - position) * engine.WEIGHT
         self.engines.add(engine)
