@@ -26,7 +26,7 @@ class Result(NamedTuple):
 
     title: str
     url: str
-    text: str
+    text: Optional[str]
 
 
 class RatedResult:

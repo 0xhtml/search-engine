@@ -44,7 +44,7 @@ async def _engine_search(
     engine: type[Engine], client: httpx.AsyncClient, query: ParsedQuery
 ) -> tuple[type[Engine], list[Result] | EngineError]:
     try:
-        return engine, await engine(client).search(query)
+        return engine, await engine.search(client, query)
     except EngineError as e:
         engine._log(str(e))
         return engine, e

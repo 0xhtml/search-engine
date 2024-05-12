@@ -13,7 +13,9 @@
             <small>{{ rated_result.result.url }}</small>
             <h3>{{ rated_result.result.title | highlight(parsed_query) }}</h3>
         </a>
+        {% if not rated_result.result.text is none %}
         <p>{{ rated_result.result.text | highlight(parsed_query) }}</p>
+        {% endif %}
         <small>{{ "{:.1f}".format(rated_result.rating) }} - {{ rated_result.engines | map(attribute="__name__") | sort | join(" ") }}</small>
     </li>
     {% endfor %}

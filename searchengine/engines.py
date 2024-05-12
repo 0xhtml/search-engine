@@ -33,15 +33,6 @@ class Engine:
     _LANG_MAP: ClassVar[dict[str, str]]
     _LANG_KEY: ClassVar[str]
 
-    @staticmethod
-    def normalize(text: str, sep: str = " ") -> str:
-        """Normalize text."""
-        return sep.join(text.splitlines()).strip()
-
-    def __init__(self, client: httpx.AsyncClient) -> None:
-        """Initialize engine."""
-        self._client = client
-
     @classmethod
     def _log(cls, msg: str, tag: Optional[str] = None) -> None:
         if tag is None:
@@ -49,33 +40,33 @@ class Engine:
         else:
             print(f"[!] [{cls.__name__}] [{tag}] {msg}")
 
-    async def _parse_response(self, response: httpx.Response) -> list[Result]:
+    @classmethod
+    def _parse_response(cls, response: httpx.Response) -> list[Result]:
         raise NotImplementedError
 
-    async def search(self, query: ParsedQuery) -> list[Result]:
+    @classmethod
+    async def search(
+        cls, client: httpx.AsyncClient, query: ParsedQuery
+    ) -> list[Result]:
         """Perform a search and return the results."""
         params = {
-            self._QUERY_KEY: query.to_string(self._SIMPLE_QUERY),
-            **self._PARAMS,
+            cls._QUERY_KEY: query.to_string(cls._SIMPLE_QUERY),
+            **cls._PARAMS,
         }
-        headers = {**self._HEADERS}
 
-        if hasattr(self, "_LANG_MAP"):
-            lang_name = self._LANG_MAP.get(query.lang, "")
-            params[self._LANG_KEY] = lang_name
+        if hasattr(cls, "_LANG_MAP"):
+            lang_name = cls._LANG_MAP.get(query.lang, "")
+            params[cls._LANG_KEY] = lang_name
 
         data = (
             {"data": json.dumps(params)}
-            if self._METHOD == "POST"
+            if cls._METHOD == "POST"
             else {"params": params}
         )
 
         try:
-            response = await self._client.request(
-                self._METHOD,
-                self._URL,
-                headers=headers,
-                **data,  # type: ignore
+            response = await client.request(
+                cls._METHOD, cls._URL, headers=cls._HEADERS, **data
             )
         except httpx.RequestError as e:
             raise EngineError(f"Request error on search ({type(e).__name__})") from e
@@ -86,7 +77,7 @@ class Engine:
                 f" ({response.status_code} {response.reason_phrase})",
             )
 
-        return await self._parse_response(response)
+        return cls._parse_response(response)
 
 
 class XPathEngine(Engine):
@@ -100,55 +91,34 @@ class XPathEngine(Engine):
     }
 
     _RESULT_PATH: ClassVar[etree.XPath]
-    _TITLE_PATH: ClassVar[Optional[etree.XPath]]
-    _URL_PATH: ClassVar[Optional[etree.XPath]]
-    _TEXT_PATH: ClassVar[Optional[etree.XPath]]
+    _TITLE_PATH: ClassVar[etree.XPath]
+    _URL_PATH: ClassVar[etree.XPath]
+    _TEXT_PATH: ClassVar[Optional[etree.XPath]] = None
 
     @staticmethod
-    def _html_to_string(elem: html.Element) -> str:
+    def _get(root: html.HtmlElement, path: Optional[etree.XPath]) -> Optional[str]:
+        if path is None or not (elems := path(root)):
+            return None
+        if isinstance(elems[0], str):
+            return elems[0]
         return html.tostring(
-            elem,
-            encoding="unicode",
-            method="text",
-            with_tail=False,
+            elems[0], encoding="unicode", method="text", with_tail=False
         )
 
-    @staticmethod
-    def _get_elem(
-        root: html.Element, path: Optional[etree.XPath]
-    ) -> Optional[html.Element]:
-        if path is None:
-            return root
-
-        elems = path(root)
-        if not elems:
-            return None
-
-        return elems[0]
-
-    async def _parse_response(self, response: httpx.Response) -> list[Result]:
+    @classmethod
+    def _parse_response(cls, response: httpx.Response) -> list[Result]:
         dom = etree.fromstring(response.text, parser=html.html_parser)
 
         results = []
 
-        for result in self._RESULT_PATH(dom):
-            url = self._get_elem(result, self._URL_PATH)
-            if url is None:
+        for result in cls._RESULT_PATH(dom):
+            if (url := cls._get(result, cls._URL_PATH)) is None:
                 continue
-            url = self.normalize(url.attrib.get("href"), "")
 
-            title = self._get_elem(result, self._TITLE_PATH)
-            if title is None:
+            if (title := cls._get(result, cls._TITLE_PATH)) is None:
                 continue
-            title = self.normalize(self._html_to_string(title))
 
-            if (
-                not hasattr(self, "_TEXT_PATH")
-                or (text := self._get_elem(result, self._TEXT_PATH)) is None
-            ):
-                text = ""
-            else:
-                text = self.normalize(self._html_to_string(text))
+            text = cls._get(result, cls._TEXT_PATH)
 
             results.append(Result(title, url, text))
 
@@ -161,31 +131,34 @@ class JSONEngine(Engine):
     _RESULT_PATH: ClassVar[jsonpath_ng.JSONPath]
     _TITLE_KEY: ClassVar[str] = "title"
     _URL_KEY: ClassVar[str] = "url"
-    _TEXT_KEY: ClassVar[str] = "snippet"
+    _TEXT_KEY: ClassVar[Optional[str]] = None
 
-    async def _parse_response(self, response: httpx.Response) -> list[Result]:
+    @staticmethod
+    def _get(root: jsonpath_ng.DatumInContext, key: Optional[str]) -> Optional[str]:
+        return None if key is None else root.value.get(key, None)
+
+    @classmethod
+    def _parse_response(cls, response: httpx.Response) -> list[Result]:
         json = response.json()
 
         results = []
 
-        for result in self._RESULT_PATH.find(json):
-            url = self.normalize(result.value.get(self._URL_KEY, ""), "")
-            if not url:
+        for result in cls._RESULT_PATH.find(json):
+            if (url := cls._get(result, cls._URL_KEY)) is None:
                 continue
 
-            title = self.normalize(result.value.get(self._TITLE_KEY, ""))
-            if not title:
+            if (title := cls._get(result, cls._TITLE_KEY)) is None:
                 continue
 
-            text = self.normalize(result.value.get(self._TEXT_KEY, ""))
+            text = cls._get(result, cls._TEXT_KEY)
 
             results.append(Result(title, url, text))
 
         return results
 
 
-class Google(XPathEngine):
-    """Search on Google using StartPage proxy."""
+class Bing(XPathEngine):
+    """Search on Bing using StartPage proxy."""
 
     WEIGHT = 1.3
 
@@ -199,24 +172,8 @@ class Google(XPathEngine):
 
     _RESULT_PATH = etree.XPath('//div[starts-with(@class,"result")]')
     _TITLE_PATH = etree.XPath("./a/h2")
-    _URL_PATH = etree.XPath('./a')
+    _URL_PATH = etree.XPath("./a/@href")
     _TEXT_PATH = etree.XPath("./p")
-
-
-class Bing(JSONEngine):
-    """Search on Bing using the API."""
-
-    WEIGHT = 1.3
-
-    _URL = "https://api.bing.microsoft.com/v7.0/search"
-
-    _HEADERS = {"Ocp-Apim-Subscription-Key": "API-KEY"}
-
-    _LANG_MAP = {"de": "de-DE", "en": "en-US"}
-    _LANG_KEY = "mkt"
-
-    _RESULT_PATH = jsonpath_ng.ext.parse("webPages.value[*]")
-    _TITLE_KEY = "name"
 
 
 class Mojeek(XPathEngine):
@@ -226,7 +183,7 @@ class Mojeek(XPathEngine):
 
     _RESULT_PATH = etree.XPath('//a[@class="ob"]')
     _TITLE_PATH = etree.XPath("../h2/a")
-    _URL_PATH = None
+    _URL_PATH = etree.XPath("./@href")
     _TEXT_PATH = etree.XPath('../p[@class="s"]')
 
 
@@ -255,10 +212,10 @@ class RightDao(XPathEngine):
 
     _URL = "https://rightdao.com/search"
 
-    _RESULT_PATH = etree.XPath('//div[@class="item"]/div[@class="description"]')
-    _TITLE_PATH = etree.XPath('../div[@class="title"]/a')
-    _URL_PATH = _TITLE_PATH
-    _TEXT_PATH = None
+    _RESULT_PATH = etree.XPath('//div[@class="description"]')
+    _TITLE_PATH = etree.XPath('../div[@class="title"]')
+    _URL_PATH = etree.XPath('../div[@class="title"]/a/@href')
+    _TEXT_PATH = etree.XPath(".")
 
 
 class Alexandria(JSONEngine):
@@ -270,6 +227,7 @@ class Alexandria(JSONEngine):
     _SIMPLE_QUERY = True
 
     _RESULT_PATH = jsonpath_ng.ext.parse("results[*]")
+    _TEXT_KEY = "snippet"
 
 
 class Yep(JSONEngine):
@@ -288,10 +246,11 @@ class Yep(JSONEngine):
     _LANG_KEY = "gl"
 
     _RESULT_PATH = jsonpath_ng.ext.parse('[1].results[?type = "Organic"]')
+    _TEXT_KEY = "snippet"
 
 
 _LANG_MAP = {
-    "*": {Google, Bing, Mojeek, Yep},
+    "*": {Bing, Mojeek, Yep},
     "de": {Stract},
     "en": {Stract, Alexandria, RightDao},
 }
