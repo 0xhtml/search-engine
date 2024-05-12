@@ -122,12 +122,14 @@ body {
     & > li {
         margin-bottom: 1.5em;
 
-        & > small {
-            color: var(--half);
-        }
-
         & > a {
             text-decoration: none;
+
+            & > img {
+                max-width: 80%;
+                margin: 0 auto;
+                display: block;
+            }
 
             & > small {
                 color: var(--fg);
@@ -159,6 +161,10 @@ body {
             margin: 0;
             overflow: hidden;
             text-overflow: ellipsis;
+        }
+
+        & > small {
+            color: var(--half);
         }
     }
 }

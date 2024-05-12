@@ -2,6 +2,7 @@
 
 import json
 from typing import ClassVar, Optional, Type, Union
+from enum import Enum
 
 import httpx
 import jsonpath_ng
@@ -12,6 +13,11 @@ from .query import ParsedQuery
 from .results import Result
 
 
+class SearchMode(Enum):
+    WEB = "web"
+    IMAGES = "images"
+
+
 class EngineError(Exception):
     """Exception that is raised when a request fails."""
 
@@ -20,6 +26,7 @@ class Engine:
     """Base class for a search engine."""
 
     WEIGHT: ClassVar = 1.0
+    SUPPORTED_LANGUAGES: ClassVar[Optional[set[str]]] = None
 
     _URL: ClassVar[str]
     _METHOD: ClassVar[str] = "GET"
@@ -94,6 +101,7 @@ class XPathEngine(Engine):
     _TITLE_PATH: ClassVar[etree.XPath]
     _URL_PATH: ClassVar[etree.XPath]
     _TEXT_PATH: ClassVar[Optional[etree.XPath]] = None
+    _SRC_PATH: ClassVar[Optional[etree.XPath]] = None
 
     @staticmethod
     def _get(root: html.HtmlElement, path: Optional[etree.XPath]) -> Optional[str]:
@@ -120,7 +128,10 @@ class XPathEngine(Engine):
 
             text = cls._get(result, cls._TEXT_PATH)
 
-            results.append(Result(title, url, text))
+            if (src := cls._get(result, cls._SRC_PATH)) is not None:
+                src = response.url.join(src)
+
+            results.append(Result(title, url, text, src))
 
         return results
 
@@ -132,6 +143,7 @@ class JSONEngine(Engine):
     _TITLE_KEY: ClassVar[str] = "title"
     _URL_KEY: ClassVar[str] = "url"
     _TEXT_KEY: ClassVar[Optional[str]] = None
+    _SRC_KEY: ClassVar[Optional[str]] = None
 
     @staticmethod
     def _get(root: jsonpath_ng.DatumInContext, key: Optional[str]) -> Optional[str]:
@@ -151,8 +163,9 @@ class JSONEngine(Engine):
                 continue
 
             text = cls._get(result, cls._TEXT_KEY)
+            src = cls._get(result, cls._SRC_KEY)
 
-            results.append(Result(title, url, text))
+            results.append(Result(title, url, text, src))
 
         return results
 
@@ -176,6 +189,27 @@ class Bing(XPathEngine):
     _TEXT_PATH = etree.XPath("./p")
 
 
+class BingImages(JSONEngine, Bing):
+    """Search images on Bing using StartPage proxy."""
+
+    _PARAMS = {**Bing._PARAMS, "cat": "pics"}
+
+    _RESULT_PATH = jsonpath_ng.ext.parse(
+        'render.presenter.regions.mainline[?display_type="images-bing"].results[*]'
+    )
+    _URL_KEY = "displayUrl"
+    _SRC_KEY = "rawImageUrl"
+
+    @classmethod
+    def _parse_response(cls, response: httpx.Response) -> list[Result]:
+        response._content = (
+            response.text.split("React.createElement(UIStartpage.AppSerp, ", 1)[1]
+            .splitlines()[0]
+            .rsplit(")", 1)[0]
+        )
+        return super()._parse_response(response)
+
+
 class Mojeek(XPathEngine):
     """Search on Mojeek."""
 
@@ -187,8 +221,21 @@ class Mojeek(XPathEngine):
     _TEXT_PATH = etree.XPath('../p[@class="s"]')
 
 
+class MojeekImages(Mojeek):
+    """Search images on Mojeek."""
+
+    _PARAMS = {"fmt": "images"}
+
+    _RESULT_PATH = etree.XPath('//a[@class="js-img-a"]')
+    _TITLE_PATH = etree.XPath("./@data-title")
+    _TEXT_PATH = None
+    _SRC_PATH = etree.XPath("./img/@src")
+
+
 class Stract(JSONEngine):
     """Search on stract."""
+
+    SUPPORTED_LANGUAGES = {"de", "en"}
 
     _URL = "https://stract.com/beta/api/search"
     _METHOD = "POST"
@@ -210,6 +257,8 @@ class Stract(JSONEngine):
 class RightDao(XPathEngine):
     """Search on Right Dao."""
 
+    SUPPORTED_LANGUAGES = {"en"}
+
     _URL = "https://rightdao.com/search"
 
     _RESULT_PATH = etree.XPath('//div[@class="description"]')
@@ -220,6 +269,8 @@ class RightDao(XPathEngine):
 
 class Alexandria(JSONEngine):
     """Search on Alexandria an English only search engine."""
+
+    SUPPORTED_LANGUAGES = {"en"}
 
     _URL = "https://api.alexandria.org"
 
@@ -245,17 +296,20 @@ class Yep(JSONEngine):
     _LANG_MAP = {"de": "DE", "en": "US"}
     _LANG_KEY = "gl"
 
-    _RESULT_PATH = jsonpath_ng.ext.parse('[1].results[?type = "Organic"]')
+    _RESULT_PATH = jsonpath_ng.ext.parse('[1].results[?type="Organic"]')
     _TEXT_KEY = "snippet"
 
 
-_LANG_MAP = {
-    "*": {Bing, Mojeek, Yep},
-    "de": {Stract},
-    "en": {Stract, Alexandria, RightDao},
+_MODE_MAP = {
+    SearchMode.WEB: {Bing, Mojeek, Stract, Alexandria, RightDao, Yep},
+    SearchMode.IMAGES: {BingImages, MojeekImages},
 }
 
 
-def get_lang_engines(lang: str) -> set[Type[Engine]]:
+def get_engines(mode: SearchMode, lang: str) -> set[Type[Engine]]:
     """Return list of enabled engines for the language."""
-    return _LANG_MAP.get("*", set()).union(_LANG_MAP.get(lang, set()))
+    return {
+        engine
+        for engine in _MODE_MAP.get(mode, set())
+        if engine.SUPPORTED_LANGUAGES is None or lang in engine.SUPPORTED_LANGUAGES
+    }

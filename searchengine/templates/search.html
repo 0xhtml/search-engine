@@ -9,12 +9,21 @@
 <ul class="results">
     {% for rated_result in results %}
     <li>
+        {% if mode.value == "web" %}
         <a href="{{ rated_result.result.url }}">
             <small>{{ rated_result.result.url }}</small>
             <h3>{{ rated_result.result.title | highlight(parsed_query) }}</h3>
         </a>
         {% if not rated_result.result.text is none %}
         <p>{{ rated_result.result.text | highlight(parsed_query) }}</p>
+        {% endif %}
+        {% elif mode.value == "images" %}
+        <a href="{{ rated_result.result.url }}">
+            <img src="{{ rated_result.result.src }}"{% if not rated_result.result.text is none %} alt="{{ rated_result.result.text }}"{% endif %}>
+            <h3>{{ rated_result.result.title | highlight(parsed_query) }}</h3>
+        </a>
+        {% else %}
+        <p>Unsupported search mode: {{ mode }}</p>
         {% endif %}
         <small>{{ "{:.1f}".format(rated_result.rating) }} - {{ rated_result.engines | map(attribute="__name__") | sort | join(" ") }}</small>
     </li>
