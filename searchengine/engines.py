@@ -166,7 +166,14 @@ class JSONEngine(Engine):
             if (title := cls._get(result, cls._TITLE_PATH)) is None:
                 continue
 
-            text = cls._get(result, cls._TEXT_PATH)
+            if text := cls._get(result, cls._TEXT_PATH):
+                text = html.tostring(
+                    etree.fromstring(text, html.html_parser),
+                    encoding="unicode",
+                    method="text",
+                    with_tail=False,
+                )
+
             src = cls._get(result, cls._SRC_PATH)
 
             results.append(Result(title, url, text, src))
