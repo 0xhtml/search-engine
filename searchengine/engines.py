@@ -317,8 +317,22 @@ class YepImages(Yep):
     _SRC_PATH = jsonpath_ng.parse("src")
 
 
+class SeSe(JSONEngine):
+    """Search on SeSe."""
+
+    _URL = "https://se-proxy.azurewebsites.net/api/search"
+
+    _PARAMS = {"slice": "0:12"}
+    _SIMPLE_QUERY = True
+
+    _RESULT_PATH = jsonpath_ng.ext.parse("'结果'[*]")
+    _URL_PATH = jsonpath_ng.parse("'网址'")
+    _TITLE_PATH = jsonpath_ng.parse("'信息'.'标题'")
+    _TEXT_PATH = jsonpath_ng.parse("'信息'.'文本'")
+
+
 _MODE_MAP = {
-    SearchMode.WEB: {Bing, Mojeek, Stract, Alexandria, RightDao, Yep},
+    SearchMode.WEB: {Bing, Mojeek, Stract, Alexandria, RightDao, Yep, SeSe},
     SearchMode.IMAGES: {BingImages, MojeekImages, YepImages},
 }
 
