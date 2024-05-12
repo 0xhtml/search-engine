@@ -140,14 +140,18 @@ class JSONEngine(Engine):
     """Base class for search engine using JSON."""
 
     _RESULT_PATH: ClassVar[jsonpath_ng.JSONPath]
-    _TITLE_KEY: ClassVar[str] = "title"
-    _URL_KEY: ClassVar[str] = "url"
-    _TEXT_KEY: ClassVar[Optional[str]] = None
-    _SRC_KEY: ClassVar[Optional[str]] = None
+    _TITLE_PATH: ClassVar[jsonpath_ng.JSONPath] = jsonpath_ng.parse("title")
+    _URL_PATH: ClassVar[jsonpath_ng.JSONPath] = jsonpath_ng.parse("url")
+    _TEXT_PATH: ClassVar[Optional[jsonpath_ng.JSONPath]] = None
+    _SRC_PATH: ClassVar[Optional[jsonpath_ng.JSONPath]] = None
 
     @staticmethod
-    def _get(root: jsonpath_ng.DatumInContext, key: Optional[str]) -> Optional[str]:
-        return None if key is None else root.value.get(key, None)
+    def _get(
+        root: jsonpath_ng.DatumInContext, path: Optional[jsonpath_ng.JSONPath]
+    ) -> Optional[str]:
+        if path is None or not (elems := path.find(root.value)):
+            return None
+        return elems[0].value
 
     @classmethod
     def _parse_response(cls, response: httpx.Response) -> list[Result]:
@@ -156,14 +160,14 @@ class JSONEngine(Engine):
         results = []
 
         for result in cls._RESULT_PATH.find(json):
-            if (url := cls._get(result, cls._URL_KEY)) is None:
+            if (url := cls._get(result, cls._URL_PATH)) is None:
                 continue
 
-            if (title := cls._get(result, cls._TITLE_KEY)) is None:
+            if (title := cls._get(result, cls._TITLE_PATH)) is None:
                 continue
 
-            text = cls._get(result, cls._TEXT_KEY)
-            src = cls._get(result, cls._SRC_KEY)
+            text = cls._get(result, cls._TEXT_PATH)
+            src = cls._get(result, cls._SRC_PATH)
 
             results.append(Result(title, url, text, src))
 
@@ -197,8 +201,8 @@ class BingImages(JSONEngine, Bing):
     _RESULT_PATH = jsonpath_ng.ext.parse(
         'render.presenter.regions.mainline[?display_type="images-bing"].results[*]'
     )
-    _URL_KEY = "displayUrl"
-    _SRC_KEY = "rawImageUrl"
+    _URL_PATH = jsonpath_ng.parse("displayUrl")
+    _SRC_PATH = jsonpath_ng.parse("rawImageUrl")
 
     @classmethod
     def _parse_response(cls, response: httpx.Response) -> list[Result]:
@@ -251,7 +255,7 @@ class Stract(JSONEngine):
     _LANG_KEY = "selectedRegion"
 
     _RESULT_PATH = jsonpath_ng.ext.parse("webpages[*]")
-    _TEXT_KEY = "body"
+    _TEXT_PATH = jsonpath_ng.parse("body")
 
 
 class RightDao(XPathEngine):
@@ -278,7 +282,7 @@ class Alexandria(JSONEngine):
     _SIMPLE_QUERY = True
 
     _RESULT_PATH = jsonpath_ng.ext.parse("results[*]")
-    _TEXT_KEY = "snippet"
+    _TEXT_PATH = jsonpath_ng.parse("snippet")
 
 
 class Yep(JSONEngine):
@@ -299,7 +303,7 @@ class Yep(JSONEngine):
     _LANG_KEY = "gl"
 
     _RESULT_PATH = jsonpath_ng.ext.parse('[1].results[?type="Organic"]')
-    _TEXT_KEY = "snippet"
+    _TEXT_PATH = jsonpath_ng.parse("snippet")
 
 
 class YepImages(Yep):
@@ -308,9 +312,9 @@ class YepImages(Yep):
     _PARAMS = {**Yep._PARAMS, "type": "images"}
 
     _RESULT_PATH = jsonpath_ng.ext.parse('[1].results[?type="Image"]')
-    _URL_KEY = "host_page"
-    _TEXT_KEY = None
-    _SRC_KEY = "src"
+    _URL_PATH = jsonpath_ng.parse("host_page")
+    _TEXT_PATH = None
+    _SRC_PATH = jsonpath_ng.parse("src")
 
 
 _MODE_MAP = {
