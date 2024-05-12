@@ -246,20 +246,19 @@ class MojeekImages(Mojeek):
 class Stract(JSONEngine):
     """Search on stract."""
 
-    SUPPORTED_LANGUAGES = {"de", "en"}
+    # FIXME region selection doesn't really work
+    SUPPORTED_LANGUAGES = {"en"}
 
     _URL = "https://stract.com/beta/api/search"
     _METHOD = "POST"
 
-    _PARAMS = {"safeSearch": True}
-
-    _HEADERS = {"Content-Type": "application/json"}
+    # FIXME safe search is broken
+    # _PARAMS = {"safeSearch": True}
 
     _QUERY_KEY = "query"
     _SIMPLE_QUERY = True
 
-    _LANG_MAP = {"de": "Germany", "en": "US"}
-    _LANG_KEY = "selectedRegion"
+    _HEADERS = {"Content-Type": "application/json"}
 
     _RESULT_PATH = jsonpath_ng.ext.parse("webpages[*]")
     _TEXT_PATH = jsonpath_ng.parse("body")
