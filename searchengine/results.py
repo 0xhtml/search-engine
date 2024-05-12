@@ -3,6 +3,7 @@
 from typing import NamedTuple, Optional
 
 import httpx
+import regex
 
 from .lang import detect_lang
 
@@ -54,7 +55,10 @@ class RatedResult:
         """Run additional result evaluation and update rating."""
         assert self.result is not None
 
-        if detect_lang(f"{self.result.title} {self.result.text}") == lang:
+        text = f"{self.result.title} {self.result.text}"
+        if lang != "zh" and regex.search(r"\p{Han}", text):
+            self.rating *= 0.5
+        elif detect_lang(text) == lang:
             self.rating += 2
 
         host = httpx.URL(self.result.url).host.removeprefix("www.")
