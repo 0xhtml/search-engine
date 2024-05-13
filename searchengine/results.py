@@ -46,12 +46,14 @@ class RatedResult:
 
     def update(self, result: Result, position: int, engine: type["Engine"]) -> None:
         """Update rated result by combining the result from another engine."""
-        assert engine not in self.engines
+        has_higher_weight = engine.WEIGHT > max(e.WEIGHT for e in self.engines)
 
         if len(self.title) < len(result.title):
             self.title = result.title
 
-        if self.url.scheme != "https" and result.url.scheme == "https":
+        if (
+            self.url.scheme != "https" and result.url.scheme == "https"
+        ) or has_higher_weight:
             self.url = result.url
 
         if result.text is not None and (
@@ -59,7 +61,7 @@ class RatedResult:
         ):
             self.text = result.text
 
-        if self.src is None or engine.WEIGHT > max(e.WEIGHT for e in self.engines):
+        if self.src is None or has_higher_weight:
             self.src = result.src
 
         self.rating += (_MAX_RESULTS - position) * engine.WEIGHT
