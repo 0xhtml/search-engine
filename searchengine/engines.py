@@ -255,8 +255,7 @@ class Stract(JSONEngine):
     _URL = "https://stract.com/beta/api/search"
     _METHOD = "POST"
 
-    # FIXME safe search is broken
-    # _PARAMS = {"safeSearch": True}
+    _PARAMS = {"safeSearch": True}
 
     _QUERY_KEY = "query"
 

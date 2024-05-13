@@ -64,8 +64,9 @@ class RatedResult:
         if self.src is None or has_higher_weight:
             self.src = result.src
 
-        self.rating += (_MAX_RESULTS - position) * engine.WEIGHT
-        self.engines.add(engine)
+        if engine not in self.engines:
+            self.rating += (_MAX_RESULTS - position) * engine.WEIGHT
+            self.engines.add(engine)
 
     def eval(self, lang: str) -> None:
         """Run additional result evaluation and update rating."""
