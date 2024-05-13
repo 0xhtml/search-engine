@@ -131,7 +131,7 @@ class XPathEngine(Engine):
             if (src := cls._get(result, cls._SRC_PATH)) is not None:
                 src = response.url.join(src)
 
-            results.append(Result(title, url, text, src))
+            results.append(Result(title, httpx.URL(url), text, src))
 
         return results
 
@@ -176,7 +176,7 @@ class JSONEngine(Engine):
 
             src = cls._get(result, cls._SRC_PATH)
 
-            results.append(Result(title, url, text, src))
+            results.append(Result(title, httpx.URL(url), text, src))
 
         return results
 

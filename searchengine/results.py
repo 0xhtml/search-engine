@@ -26,7 +26,7 @@ class Result(NamedTuple):
     """Single result returned by a search."""
 
     title: str
-    url: str
+    url: httpx.URL
     text: Optional[str]
     src: Optional[str]
 
@@ -34,35 +34,46 @@ class Result(NamedTuple):
 class RatedResult:
     """Combined result with a rating and set of engines associated."""
 
-    result: Optional[Result]
-    rating: float
-    engines: set[type["Engine"]]
-
-    def __init__(self) -> None:
+    def __init__(self, result: Result, position: int, engine: type["Engine"]) -> None:
         """Initialize empty rated result."""
-        self.result = None
-        self.rating = 0
-        self.engines = set()
+        self.title = result.title
+        self.url = result.url
+        self.text = result.text
+        self.src = result.src
+
+        self.rating = (_MAX_RESULTS - position) * engine.WEIGHT
+        self.engines = {engine}
 
     def update(self, result: Result, position: int, engine: type["Engine"]) -> None:
         """Update rated result by combining the result from another engine."""
         assert engine not in self.engines
-        if engine.WEIGHT > max((e.WEIGHT for e in self.engines), default=0):
-            self.result = result
+
+        if len(self.title) < len(result.title):
+            self.title = result.title
+
+        if self.url.scheme != "https" and result.url.scheme == "https":
+            self.url = result.url
+
+        if result.text is not None and (
+            self.text is None or len(self.text) < len(result.text)
+        ):
+            self.text = result.text
+
+        if self.src is None or engine.WEIGHT > max(e.WEIGHT for e in self.engines):
+            self.src = result.src
+
         self.rating += (_MAX_RESULTS - position) * engine.WEIGHT
         self.engines.add(engine)
 
     def eval(self, lang: str) -> None:
         """Run additional result evaluation and update rating."""
-        assert self.result is not None
-
-        text = f"{self.result.title} {self.result.text}"
+        text = f"{self.title} {self.text}"
         if lang != "zh" and regex.search(r"\p{Han}", text):
             self.rating *= 0.5
         elif detect_lang(text) == lang:
             self.rating += 2
 
-        host = httpx.URL(self.result.url).host.removeprefix("www.")
+        host = self.url.host.removeprefix("www.")
         if host == "docs.python.org":
             self.rating *= 1.5
         elif host == "stackoverflow.com":
@@ -77,13 +88,18 @@ def order_results(
     results: list[tuple[type["Engine"], list[Result]]], lang: str
 ) -> list[RatedResult]:
     """Combine results from all engines and order them."""
-    rated_results: dict[str, RatedResult] = {}
+    rated_results: dict[httpx.URL, RatedResult] = {}
 
     for engine, engine_results in results:
         for i, result in enumerate(engine_results[:_MAX_RESULTS]):
-            rated_results.setdefault(result.url, RatedResult()).update(
-                result, i, engine
+            url = result.url.copy_with(
+                scheme="http" if result.url.scheme == "https" else result.url.scheme,
+                host=result.url.host.removeprefix("www."),
             )
+            if url in rated_results:
+                rated_results[url].update(result, i, engine)
+            else:
+                rated_results[url] = RatedResult(result, i, engine)
 
     for result in rated_results.values():
         result.eval(lang)
