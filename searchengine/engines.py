@@ -90,8 +90,8 @@ class XPathEngine(Engine):
     _HEADERS = {
         "Accept": "text/html,application/xhtml+xml,application/xml;"
         "q=0.9,image/avif,image/webp,*/*;q=0.8",
-        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:109.0) "
-        "Gecko/20100101 Firefox/112.0",
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:125.0) "
+        "Gecko/20100101 Firefox/125.0",
     }
 
     _RESULT_PATH: ClassVar[etree.XPath]
@@ -300,7 +300,16 @@ class Yep(JSONEngine):
         "type": "web",
     }
 
-    _HEADERS = {"Referer": "https://yep.com/"}
+    _HEADERS = {
+        **XPathEngine._HEADERS,
+        "Accept": "*/*",
+        "Accept-Language": "de,en-US;q=0.7,en;q=0.3",
+        "Referer": "https://yep.com/",
+        "Origin": "https://yep.com",
+        "Sec-Fetch-Dest": "empty",
+        "Sec-Fetch-Mode": "cors",
+        "Sec-Fetch-Site": "same-site",
+    }
 
     _LANG_MAP = {"de": "DE", "en": "US"}
     _LANG_KEY = "gl"
