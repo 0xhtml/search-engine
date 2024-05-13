@@ -4,8 +4,8 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-
-#: searchengine/__init__.py:24 searchengine/templates/base.html:14
+#: searchengine/__init__.py:25 searchengine/templates/base.html:14
+#: searchengine/templates/search.html:38
 msgid "Error"
 msgstr ""
 
@@ -13,26 +13,36 @@ msgstr ""
 msgid "The requested page was not not found"
 msgstr ""
 
-#: searchengine/__init__.py:42
+#: searchengine/__init__.py:42 searchengine/templates/index.html:8
+#: searchengine/templates/search.html:7
 msgid "Search"
 msgstr ""
 
-#: searchengine/__init__.py:51
+#: searchengine/__init__.py:60
 msgid "No search term was received"
 msgstr ""
 
-#: searchengine/__init__.py:56
+#: searchengine/__init__.py:64
 msgid "The search term is empty"
 msgstr ""
 
-#: searchengine/templates/base.html:5 searchengine/templates/opensearch.xml:3
+#: searchengine/templates/base.html:5 searchengine/templates/base.html:9
+#: searchengine/templates/opensearch.xml:3
 msgid "Websearch"
 msgstr ""
 
-#: searchengine/templates/opensearch.xml:4
+#: searchengine/templates/base.html:8 searchengine/templates/opensearch.xml:4
 msgid "A (meta) search engine"
 msgstr ""
 
 #: searchengine/templates/index.hml:6 searchengine/templates/search.html:5
 msgid "Search the web..."
 msgstr ""
+
+#: searchengine/templates/search.html:10
+msgid "web"
+msgstr "Web"
+
+#: searchengine/templates/search.html:10
+msgid "images"
+msgstr "Images"

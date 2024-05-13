@@ -17,6 +17,7 @@ _QUERY_PARSER = QueryParser()
 application = Flask(__name__)
 application.jinja_env.filters.update(TEMPLATE_FILTER_MAP)
 application.jinja_env.globals["_"] = _
+application.jinja_env.globals["SearchMode"] = SearchMode
 
 
 def error(message: str):

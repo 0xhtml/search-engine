@@ -114,6 +114,31 @@ body {
     }
 }
 
+.modes {
+    margin: -1.25em calc(.5em + 1px) 1.5em;
+    display: flex;
+
+    & > input {
+        display: none;
+    }
+
+    & > label {
+        cursor: pointer;
+        margin: 0 .4em;
+        padding: .5em .6em;
+        border-radius: 1em;
+
+        &:hover {
+            background: var(--muted);
+        }
+    }
+
+    & > input:checked + label {
+        background: var(--hbg);
+        color: var(--hfg);
+    }
+}
+
 .results {
     list-style-type: none;
     padding: 0;
