@@ -7,11 +7,12 @@ import httpx
 from flask import Flask, make_response, render_template, request
 
 from .engines import Engine, EngineError, SearchMode, get_engines
-from .query import ParsedQuery, parse_query
+from .query import ParsedQuery, QueryParser
 from .results import Result, order_results
 from .template_filter import TEMPLATE_FILTER_MAP
 
 _ = gettext.translation("msg", "locales", fallback=True).gettext
+_QUERY_PARSER = QueryParser()
 
 application = Flask(__name__)
 application.jinja_env.filters.update(TEMPLATE_FILTER_MAP)
@@ -61,7 +62,7 @@ async def search():
     if not query:
         return error(_("The search term is empty"))
 
-    parsed_query = parse_query(query)
+    parsed_query = _QUERY_PARSER.parse_query(query)
     mode = request.args.get("mode", SearchMode.WEB, SearchMode)
     engines = get_engines(mode, parsed_query.lang)
 

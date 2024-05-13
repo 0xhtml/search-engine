@@ -9,17 +9,17 @@ from searchengine.template_filter import _highlight
     ("query", "before", "after"),
     [
         (
-            ParsedQuery(["world"], ""),
+            ParsedQuery(["world"], "", None),
             "Hello World!",
             "Hello <b>World</b>!",
         ),
         (
-            ParsedQuery(["middle"], ""),
+            ParsedQuery(["middle"], "", None),
             "inthemiddleofaword!",
             "inthe<b>middle</b>ofaword!",
         ),
         (
-            ParsedQuery(["mult"], ""),
+            ParsedQuery(["mult"], "", None),
             "a mult b mult c mult d",
             "a <b>mult</b> b <b>mult</b> c <b>mult</b> d",
         ),

@@ -1,55 +1,96 @@
 """Module containing functions to work with queries."""
 
-import re
-from typing import NamedTuple
+from enum import Flag, auto
+from typing import NamedTuple, Optional
+
+import ply.lex
 
 from .lang import detect_lang
+
+
+class QueryExtensions(Flag):
+    """Special query extensions that can be used."""
+
+    QUOTES = auto()
+    SITE = auto()
 
 
 class ParsedQuery(NamedTuple):
     """Query parsed into actual query and extra data."""
 
-    query_parts: list[str]
+    words: list[str]
     lang: str
+    site: Optional[str]
 
-    def to_string(self, simple: bool) -> str:
+    def to_string(self, extensions: QueryExtensions) -> str:
         """Convert query parts to (simple) query string."""
-        if simple:
-            return " ".join(self.query_parts)
+        query = ""
 
-        string = ""
-
-        for query_part in self.query_parts:
-            if " " in query_part:
-                string += f'"{query_part}" '
+        for word in self.words:
+            if " " in word and QueryExtensions.QUOTES in extensions:
+                query += f'"{word}" '
             else:
-                string += f"{query_part} "
+                query += f"{word} "
 
-        return string[:-1]
+        if self.site is not None:
+            assert QueryExtensions.SITE in extensions
+            query += f"site:{self.site} "
+
+        return query[:-1]
 
 
-_REGEX_QUERY = re.compile(r"\"([^\"]*)\"?|:(\S+)|(\S+)")
+class QueryParser:
+    """Parser for search queries."""
 
+    tokens = ("LANG", "SITE", "WORD")
 
-def parse_query(query: str) -> ParsedQuery:
-    """Parse a raw query into a parsed query."""
-    query_parts = []
-    lang = None
+    def t_LANG(self, t):
+        r":\S*"
+        if t.value == ":":
+            t.type = "WORD"
+            return t
+        t.value = t.value.removeprefix(":")
+        if t.value:
+            if t.value[0] == ":":
+                t.type = "WORD"
+            return t
 
-    for m in _REGEX_QUERY.finditer(query):
-        if m[1] is not None:
-            part = " ".join(m[1].split())
-            if part:
-                query_parts.append(part)
-        elif m[2]:
-            if m[2][0] == ":":
-                query_parts.append(m[2])
-            else:
-                lang = m[2]
-        else:
-            query_parts.append(m[3])
+    def t_SITE(self, t):
+        r"site:\S*"
+        t.value = t.value.removeprefix("site:")
+        if t.value:
+            return t
 
-    if lang is None:
-        lang = detect_lang(" ".join(query_parts))
+    def t_WORD(self, t):
+        r'"[^"]*("|$)|\S+'
+        t.value = t.value.strip('"')
+        if t.value:
+            return t
 
-    return ParsedQuery(query_parts, lang)
+    t_ignore = " "
+
+    def t_error(self, t):
+        raise RuntimeError(f"Unexpected token: {t.value}")
+
+    def __init__(self):
+        self.lexer = ply.lex.lex(module=self)
+
+    def parse_query(self, query: str) -> ParsedQuery:
+        self.lexer.input(query)
+
+        words = []
+        lang = None
+        site = None
+
+        while token := self.lexer.token():
+            if token.type == "LANG":
+                lang = token.value
+            elif token.type == "SITE":
+                site = token.value
+            elif token.type == "WORD":
+                words.append(token.value)
+
+        if lang is None:
+            lang = detect_lang(" ".join(words))
+
+        return ParsedQuery(words, lang, site)

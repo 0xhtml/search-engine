@@ -1,15 +1,15 @@
 """Module to perform a search."""
 
 import json
-from typing import ClassVar, Optional, Type, Union
 from enum import Enum
+from typing import ClassVar, Optional, Type, Union
 
 import httpx
 import jsonpath_ng
 import jsonpath_ng.ext
 from lxml import etree, html
 
-from .query import ParsedQuery
+from .query import ParsedQuery, QueryExtensions
 from .results import Result
 
 
@@ -27,13 +27,13 @@ class Engine:
 
     WEIGHT: ClassVar = 1.0
     SUPPORTED_LANGUAGES: ClassVar[Optional[set[str]]] = None
+    QUERY_EXTENSIONS: ClassVar[QueryExtensions] = QueryExtensions.SITE
 
     _URL: ClassVar[str]
     _METHOD: ClassVar[str] = "GET"
 
     _PARAMS: ClassVar[dict[str, Union[str, bool]]] = {}
     _QUERY_KEY: ClassVar[str] = "q"
-    _SIMPLE_QUERY: ClassVar[bool] = False
 
     _HEADERS: ClassVar[dict[str, str]] = {}
 
@@ -57,7 +57,7 @@ class Engine:
     ) -> list[Result]:
         """Perform a search and return the results."""
         params = {
-            cls._QUERY_KEY: query.to_string(cls._SIMPLE_QUERY),
+            cls._QUERY_KEY: query.to_string(cls.QUERY_EXTENSIONS),
             **cls._PARAMS,
         }
 
@@ -235,6 +235,8 @@ class Mojeek(XPathEngine):
 class MojeekImages(Mojeek):
     """Search images on Mojeek."""
 
+    QUERY_EXTENSIONS = QueryExtensions(0)
+
     _PARAMS = {"fmt": "images"}
 
     _RESULT_PATH = etree.XPath('//a[@class="js-img-a"]')
@@ -248,6 +250,7 @@ class Stract(JSONEngine):
 
     # FIXME region selection doesn't really work
     SUPPORTED_LANGUAGES = {"en"}
+    QUERY_EXTENSIONS = QueryExtensions.QUOTES | QueryExtensions.SITE
 
     _URL = "https://stract.com/beta/api/search"
     _METHOD = "POST"
@@ -256,7 +259,6 @@ class Stract(JSONEngine):
     # _PARAMS = {"safeSearch": True}
 
     _QUERY_KEY = "query"
-    _SIMPLE_QUERY = True
 
     _HEADERS = {"Content-Type": "application/json"}
 
@@ -268,6 +270,7 @@ class RightDao(XPathEngine):
     """Search on Right Dao."""
 
     SUPPORTED_LANGUAGES = {"en"}
+    QUERY_EXTENSIONS = QueryExtensions.QUOTES | QueryExtensions.SITE
 
     _URL = "https://rightdao.com/search"
 
@@ -285,7 +288,6 @@ class Alexandria(JSONEngine):
     _URL = "https://api.alexandria.org"
 
     _PARAMS = {"a": "1", "c": "a"}
-    _SIMPLE_QUERY = True
 
     _RESULT_PATH = jsonpath_ng.ext.parse("results[*]")
     _TEXT_PATH = jsonpath_ng.parse("snippet")
@@ -301,7 +303,6 @@ class Yep(JSONEngine):
         "safeSearch": "strict",
         "type": "web",
     }
-    _SIMPLE_QUERY = True
 
     _HEADERS = {"Referer": "https://yep.com/"}
 
@@ -314,6 +315,8 @@ class Yep(JSONEngine):
 
 class YepImages(Yep):
     """Search images on Yep."""
+
+    QUERY_EXTENSIONS = QueryExtensions(0)
 
     _PARAMS = {**Yep._PARAMS, "type": "images"}
 
@@ -329,7 +332,6 @@ class SeSe(JSONEngine):
     _URL = "https://se-proxy.azurewebsites.net/api/search"
 
     _PARAMS = {"slice": "0:12"}
-    _SIMPLE_QUERY = True
 
     _RESULT_PATH = jsonpath_ng.ext.parse("'结果'[*]")
     _URL_PATH = jsonpath_ng.parse("'网址'")
