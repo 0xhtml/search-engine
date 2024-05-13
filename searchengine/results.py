@@ -98,6 +98,9 @@ def order_results(
             url = result.url.copy_with(
                 scheme="http" if result.url.scheme == "https" else result.url.scheme,
                 host=result.url.host.removeprefix("www."),
+                path=result.url.path.replace("–", "-")
+                if result.url.host.endswith(".wikipedia.org")
+                else result.url.path,
             )
             if url in rated_results:
                 rated_results[url].update(result, i, engine)
