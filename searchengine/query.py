@@ -22,18 +22,29 @@ class ParsedQuery(NamedTuple):
     lang: str
     site: Optional[str]
 
-    def to_string(self, extensions: QueryExtensions) -> str:
-        """Convert query parts to (simple) query string."""
+    def required_extensions(self) -> QueryExtensions:
+        """Determine which extensions are required for this query."""
+        extensions = QueryExtensions(0)
+
+        if any(" " in word for word in self.words):
+            extensions |= QueryExtensions.QUOTES
+
+        if self.site is not None:
+            extensions |= QueryExtensions.SITE
+
+        return extensions
+
+    def __str__(self) -> str:
+        """Convert query parts to query string."""
         query = ""
 
         for word in self.words:
-            if " " in word and QueryExtensions.QUOTES in extensions:
+            if " " in word:
                 query += f'"{word}" '
             else:
                 query += f"{word} "
 
         if self.site is not None:
-            assert QueryExtensions.SITE in extensions
             query += f"site:{self.site} "
 
         return query[:-1]

@@ -56,10 +56,7 @@ class Engine:
         cls, client: httpx.AsyncClient, query: ParsedQuery
     ) -> list[Result]:
         """Perform a search and return the results."""
-        params = {
-            cls._QUERY_KEY: query.to_string(cls.QUERY_EXTENSIONS),
-            **cls._PARAMS,
-        }
+        params = {cls._QUERY_KEY: str(query), **cls._PARAMS}
 
         if hasattr(cls, "_LANG_MAP"):
             lang_name = cls._LANG_MAP.get(query.lang, "")
@@ -344,10 +341,12 @@ _MODE_MAP = {
 }
 
 
-def get_engines(mode: SearchMode, lang: str) -> set[Type[Engine]]:
+def get_engines(mode: SearchMode, query: ParsedQuery) -> set[Type[Engine]]:
     """Return list of enabled engines for the language."""
     return {
         engine
         for engine in _MODE_MAP.get(mode, set())
-        if engine.SUPPORTED_LANGUAGES is None or lang in engine.SUPPORTED_LANGUAGES
+        if engine.SUPPORTED_LANGUAGES is None
+        or query.lang in engine.SUPPORTED_LANGUAGES
+        if query.required_extensions() in engine.QUERY_EXTENSIONS
     }

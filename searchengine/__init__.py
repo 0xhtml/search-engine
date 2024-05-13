@@ -64,7 +64,7 @@ async def search():
 
     parsed_query = _QUERY_PARSER.parse_query(query)
     mode = request.args.get("mode", SearchMode.WEB, SearchMode)
-    engines = get_engines(mode, parsed_query.lang)
+    engines = get_engines(mode, parsed_query)
 
     async with httpx.AsyncClient(
         limits=httpx.Limits(max_connections=10),
