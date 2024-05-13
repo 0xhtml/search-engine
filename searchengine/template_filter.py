@@ -1,5 +1,6 @@
 """Module containing filter functions for the templates."""
 
+import httpx
 import markupsafe
 
 from .query import ParsedQuery
@@ -26,4 +27,17 @@ def _highlight(string: str, query: ParsedQuery) -> markupsafe.Markup:
     return string
 
 
-TEMPLATE_FILTER_MAP = {"highlight": _highlight}
+def _pretty_url(url: httpx.URL) -> markupsafe.Markup:
+    assert url.is_absolute_url
+    return markupsafe.escape("".join([
+        url.scheme,
+        "://",
+        url.host,
+        f":{url.port}" if url.port is not None else "",
+        url.path,
+        f"?{url.params}" if url.query else "",
+        f"#{url.fragment}" if url.fragment else "",
+    ]))
+
+
+TEMPLATE_FILTER_MAP = {"highlight": _highlight, "pretty_url": _pretty_url}
