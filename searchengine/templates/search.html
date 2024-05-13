@@ -27,7 +27,7 @@
         {% endif %}
         {% elif mode.value == "images" %}
         <a href="{{ result.url }}">
-            <img src="{{ result.src }}"{% if not result.text is none %} alt="{{ result.text }}"{% endif %}>
+            <img src="{{ result.src | proxy }}"{% if not result.text is none %} alt="{{ result.text }}"{% endif %}>
             <h3>{{ result.title | highlight(parsed_query) }}</h3>
         </a>
         {% else %}

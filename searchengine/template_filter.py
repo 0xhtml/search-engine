@@ -2,8 +2,10 @@
 
 import httpx
 import markupsafe
+from flask import url_for
 
 from .query import ParsedQuery
+from .sha import gen_sha
 
 
 def _highlight(string: str, query: ParsedQuery) -> markupsafe.Markup:
@@ -29,15 +31,27 @@ def _highlight(string: str, query: ParsedQuery) -> markupsafe.Markup:
 
 def _pretty_url(url: httpx.URL) -> markupsafe.Markup:
     assert url.is_absolute_url
-    return markupsafe.escape("".join([
-        url.scheme,
-        "://",
-        url.host,
-        f":{url.port}" if url.port is not None else "",
-        url.path,
-        f"?{url.params}" if url.query else "",
-        f"#{url.fragment}" if url.fragment else "",
-    ]))
+    return markupsafe.escape(
+        "".join(
+            [
+                url.scheme,
+                "://",
+                url.host,
+                f":{url.port}" if url.port is not None else "",
+                url.path,
+                f"?{url.params}" if url.query else "",
+                f"#{url.fragment}" if url.fragment else "",
+            ]
+        )
+    )
 
 
-TEMPLATE_FILTER_MAP = {"highlight": _highlight, "pretty_url": _pretty_url}
+def _proxy(url: str) -> str:
+    return url_for("img", url=url, sha=gen_sha(url))
+
+
+TEMPLATE_FILTER_MAP = {
+    "highlight": _highlight,
+    "pretty_url": _pretty_url,
+    "proxy": _proxy,
+}

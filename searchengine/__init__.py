@@ -10,6 +10,7 @@ from .engines import Engine, EngineError, SearchMode, get_engines
 from .query import ParsedQuery, QueryParser
 from .results import Result, order_results
 from .template_filter import TEMPLATE_FILTER_MAP
+from .sha import gen_sha
 
 _ = gettext.translation("msg", "locales", fallback=True).gettext
 _QUERY_PARSER = QueryParser()
@@ -20,20 +21,20 @@ application.jinja_env.globals["_"] = _
 application.jinja_env.globals["SearchMode"] = SearchMode
 
 
-def error(message: str):
+def error(message: str, code: int = 200):
     """Return error page."""
-    return render_template("index.html", title=_("Error"), error_message=message)
+    if "text/html" in request.headers.get("Accept", ""):
+        return render_template("index.html", title=_("Error"), error_message=message), code
+
+    response = make_response(message, code)
+    response.headers["Content-Type"] = "text/plain"
+    return response
 
 
 @application.errorhandler(404)
 def page_not_found(code):
     """Return 404 error page."""
-    if "text/html" in request.headers.get("Accept", ""):
-        return error(_("The requested page was not not found")), 404
-
-    response = make_response("404 Not Found", 404)
-    response.headers["Content-Type"] = "text/plain"
-    return response
+    return error(_("The requested page was not not found"), 404)
 
 
 @application.route("/")
@@ -57,7 +58,7 @@ async def search():
     """Perform a search and return the search result page."""
     query = request.args.get("q", None, str)
     if query is None:
-        return error(_("No search term was received")), 404
+        return error(_("No search term was received"), 404)
 
     query = query.strip()
     if not query:
@@ -94,6 +95,31 @@ async def search():
         results=results,
         engine_errors=errors,
     )
+
+
+@application.route("/img")
+def img():
+    """Proxy an image."""
+    url = request.args.get("url", None, str)
+    if url is None:
+        return error("Not Found", 404)
+
+    sha = request.args.get("sha", None, str)
+    if sha is None or gen_sha(url) != sha:
+        return error("Unauthorized", 401)
+
+    try:
+        httpx_resp = httpx.get(url)
+        if not httpx_resp.is_success:
+            raise httpx.HTTPError("Request failed")
+        if not httpx_resp.headers.get("Content-Type", "").startswith("image/"):
+            raise httpx.HTTPError("Not an image")
+    except httpx.HTTPError as e:
+        return error(str(e), 500)
+
+    response = make_response(httpx_resp.content)
+    response.headers["Content-Type"] = httpx_resp.headers["Content-Type"]
+    return response
 
 
 @application.route("/opensearch.xml")
