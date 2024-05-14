@@ -1,5 +1,7 @@
 """Module to perform a search."""
 
+from . import importer
+
 import json
 from enum import Enum
 from typing import ClassVar, Optional, Type, Union, TypeVar
@@ -11,14 +13,14 @@ import jsonpath_ng.ext
 import searx.data
 from lxml import etree, html
 from searx.enginelib.traits import EngineTraits
-from searx.engines import bing, bing_images, stract, yep
+from searx.engines import bing, bing_images, google, stract, yep
 
 from .query import ParsedQuery, QueryExtensions
 from .results import Result
 
-
 bing.traits = EngineTraits(**searx.data.ENGINE_TRAITS["bing"])
 bing_images.traits = EngineTraits(**searx.data.ENGINE_TRAITS["bing images"])
+google.traits = EngineTraits(**searx.data.ENGINE_TRAITS["google"])
 
 
 class _LoggerMixin:
@@ -30,6 +32,7 @@ class _LoggerMixin:
 
 
 bing.logger = _LoggerMixin("bing")
+google.logger = _LoggerMixin("google")
 
 
 class SearchMode(Enum):
@@ -62,6 +65,7 @@ class Engine:
                 params["method"],
                 params["url"],
                 headers=params["headers"],
+                cookies=params["cookies"],
                 data=params["data"],
             )
         except httpx.RequestError as e:
@@ -135,6 +139,7 @@ class CstmEngine(Engine):
             if cls._METHOD == "GET"
             else cls._URL,
             "headers": cls._HEADERS,
+            "cookies": None,
             "data": json.dumps(params) if cls._METHOD == "POST" else None,
         }
 
@@ -345,8 +350,17 @@ class SeSe(JSONEngine):
     _TEXT_PATH = jsonpath_ng.parse("'信息'.'描述'")
 
 
+class Google(SearxEngine):
+    """Search on Google."""
+
+    WEIGHT = 1.3
+    QUERY_EXTENSIONS = QueryExtensions.QUOTES | QueryExtensions.SITE
+
+    _ENGINE = google
+
+
 _MODE_MAP = {
-    SearchMode.WEB: {Bing, Mojeek, Stract, Alexandria, RightDao, Yep, SeSe},
+    SearchMode.WEB: {Bing, Mojeek, Stract, Alexandria, RightDao, Yep, SeSe, Google},
     SearchMode.IMAGES: {BingImages, MojeekImages, YepImages},
 }
 
