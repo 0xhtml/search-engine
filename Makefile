@@ -28,7 +28,7 @@ static/style.css: scss/*.scss
 env: requirements.txt
 	touch -c env
 	test -d env || python -m venv env
-	env/bin/pip install -r requirements.txt
+	env/bin/pip install --no-build-isolation -r requirements.txt
 
 lid.176.bin:
 	wget https://dl.fbaipublicfiles.com/fasttext/supervised-models/$@

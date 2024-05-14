@@ -3,14 +3,33 @@
 import json
 from enum import Enum
 from typing import ClassVar, Optional, Type, Union
+from urllib.parse import urlencode
 
 import httpx
 import jsonpath_ng
 import jsonpath_ng.ext
+import searx.data
 from lxml import etree, html
+from searx.enginelib.traits import EngineTraits
+from searx.engines import bing, bing_images, stract, yep
 
 from .query import ParsedQuery, QueryExtensions
 from .results import Result
+
+
+bing.traits = EngineTraits(**searx.data.ENGINE_TRAITS["bing"])
+bing_images.traits = EngineTraits(**searx.data.ENGINE_TRAITS["bing images"])
+
+
+class _LoggerMixin:
+    def __init__(self, name: str):
+        self.name = name
+
+    def debug(self, msg, *args) -> None:
+        print(f"[!] [{self.name.capitalize()}] {msg % args}")
+
+
+bing.logger = _LoggerMixin("bing")
 
 
 class SearchMode(Enum):
@@ -29,6 +48,44 @@ class Engine:
     SUPPORTED_LANGUAGES: ClassVar[Optional[set[str]]] = None
     QUERY_EXTENSIONS: ClassVar[QueryExtensions] = QueryExtensions.SITE
 
+    @classmethod
+    def _log(cls, msg: str, tag: Optional[str] = None) -> None:
+        if tag is None:
+            print(f"[!] [{cls.__name__}] {msg}")
+        else:
+            print(f"[!] [{cls.__name__}] [{tag}] {msg}")
+
+    @classmethod
+    async def _request(cls, client: httpx.AsyncClient, params: dict) -> httpx.Response:
+        try:
+            response = await client.request(
+                params["method"],
+                params["url"],
+                headers=params["headers"],
+                data=params["data"],
+            )
+        except httpx.RequestError as e:
+            raise EngineError(f"Request error on search ({type(e).__name__})") from e
+
+        if not response.is_success:
+            raise EngineError(
+                "Didn't receive status code 2xx"
+                f" ({response.status_code} {response.reason_phrase})",
+            )
+
+        return response
+
+    @classmethod
+    async def search(
+        cls, client: httpx.AsyncClient, query: ParsedQuery
+    ) -> list[Result]:
+        """Perform a search and return the results."""
+        raise NotImplementedError
+
+
+class CstmEngine(Engine):
+    """Base class for a custom search engine."""
+
     _URL: ClassVar[str]
     _METHOD: ClassVar[str] = "GET"
 
@@ -41,13 +98,6 @@ class Engine:
     _LANG_KEY: ClassVar[str]
 
     @classmethod
-    def _log(cls, msg: str, tag: Optional[str] = None) -> None:
-        if tag is None:
-            print(f"[!] [{cls.__name__}] {msg}")
-        else:
-            print(f"[!] [{cls.__name__}] [{tag}] {msg}")
-
-    @classmethod
     def _parse_response(cls, response: httpx.Response) -> list[Result]:
         raise NotImplementedError
 
@@ -55,36 +105,25 @@ class Engine:
     async def search(
         cls, client: httpx.AsyncClient, query: ParsedQuery
     ) -> list[Result]:
-        """Perform a search and return the results."""
         params = {cls._QUERY_KEY: str(query), **cls._PARAMS}
 
         if hasattr(cls, "_LANG_MAP"):
             lang_name = cls._LANG_MAP.get(query.lang, "")
             params[cls._LANG_KEY] = lang_name
 
-        data = (
-            {"data": json.dumps(params)}
-            if cls._METHOD == "POST"
-            else {"params": params}
-        )
+        req_params = {
+            "method": cls._METHOD,
+            "url": f"{cls._URL}?{urlencode(params)}"
+            if cls._METHOD == "GET"
+            else cls._URL,
+            "headers": cls._HEADERS,
+            "data": json.dumps(params) if cls._METHOD == "POST" else None,
+        }
 
-        try:
-            response = await client.request(
-                cls._METHOD, cls._URL, headers=cls._HEADERS, **data
-            )
-        except httpx.RequestError as e:
-            raise EngineError(f"Request error on search ({type(e).__name__})") from e
-
-        if not response.is_success:
-            raise EngineError(
-                "Didn't receive status code 2xx"
-                f" ({response.status_code} {response.reason_phrase})",
-            )
-
-        return cls._parse_response(response)
+        return cls._parse_response(await cls._request(client, req_params))
 
 
-class XPathEngine(Engine):
+class XPathEngine(CstmEngine):
     """Base class for a x-path search engine."""
 
     _HEADERS = {
@@ -126,14 +165,14 @@ class XPathEngine(Engine):
             text = cls._get(result, cls._TEXT_PATH)
 
             if (src := cls._get(result, cls._SRC_PATH)) is not None:
-                src = response.url.join(src)
+                src = str(response.url.join(src))
 
             results.append(Result(title, httpx.URL(url), text, src))
 
         return results
 
 
-class JSONEngine(Engine):
+class JSONEngine(CstmEngine):
     """Base class for search engine using JSON."""
 
     _RESULT_PATH: ClassVar[jsonpath_ng.JSONPath]
@@ -178,44 +217,54 @@ class JSONEngine(Engine):
         return results
 
 
-class Bing(XPathEngine):
-    """Search on Bing using StartPage proxy."""
-
-    WEIGHT = 1.3
-
-    _URL = "https://www.startpage.com/do/dsearch"
-
-    _PARAMS = {"cat": "web", "pl": "ext-ff", "extVersion": "1.1.7"}
-    _QUERY_KEY = "query"
-
-    _LANG_MAP = {"de": "deutsch", "en": "english"}
-    _LANG_KEY = "language"
-
-    _RESULT_PATH = etree.XPath('//div[starts-with(@class,"result")]')
-    _TITLE_PATH = etree.XPath("./a/h2")
-    _URL_PATH = etree.XPath("./a/@href")
-    _TEXT_PATH = etree.XPath("./p")
-
-
-class BingImages(JSONEngine, Bing):
-    """Search images on Bing using StartPage proxy."""
-
-    _PARAMS = {**Bing._PARAMS, "cat": "pics"}
-
-    _RESULT_PATH = jsonpath_ng.ext.parse(
-        'render.presenter.regions.mainline[?display_type="images-bing"].results[*]'
-    )
-    _URL_PATH = jsonpath_ng.parse("displayUrl")
-    _SRC_PATH = jsonpath_ng.parse("rawImageUrl")
+class SearxEngine(Engine):
+    _ENGINE: ClassVar[object]
+    _MODE: ClassVar[SearchMode] = SearchMode.WEB
 
     @classmethod
-    def _parse_response(cls, response: httpx.Response) -> list[Result]:
-        response._content = (
-            response.text.split("React.createElement(UIStartpage.AppSerp, ", 1)[1]
-            .splitlines()[0]
-            .rsplit(")", 1)[0]
-        )
-        return super()._parse_response(response)
+    async def search(
+        cls, client: httpx.AsyncClient, query: ParsedQuery
+    ) -> list[Result]:
+        cls._ENGINE.search_type = cls._MODE.value
+
+        params = {
+            "cookies": {},
+            "data": None,
+            "headers": {"User-Agent": XPathEngine._HEADERS["User-Agent"]},
+            "method": "GET",
+            "pageno": 1,
+            "safesearch": 2,
+            "searxng_locale": query.lang,
+            "time_range": None,
+        }
+        params = cls._ENGINE.request(str(query), params)
+
+        response = await cls._request(client, params)
+        response.search_params = params
+
+        return [
+            Result(
+                result["title"],
+                httpx.URL(result["url"]),
+                result["content"] or None,
+                result.get("img_src"),
+            )
+            for result in cls._ENGINE.response(response)
+            if "title" in result and "url" in result
+        ]
+
+
+class Bing(SearxEngine):
+    """Search on Bing."""
+
+    WEIGHT = 1.3
+    _ENGINE = bing
+
+
+class BingImages(Bing):
+    """Search images on Bing."""
+
+    _ENGINE = bing_images
 
 
 class Mojeek(XPathEngine):
@@ -242,24 +291,14 @@ class MojeekImages(Mojeek):
     _SRC_PATH = etree.XPath("./img/@src")
 
 
-class Stract(JSONEngine):
+class Stract(SearxEngine):
     """Search on stract."""
 
     # FIXME region selection doesn't really work
     SUPPORTED_LANGUAGES = {"en"}
     QUERY_EXTENSIONS = QueryExtensions.QUOTES | QueryExtensions.SITE
 
-    _URL = "https://stract.com/beta/api/search"
-    _METHOD = "POST"
-
-    _PARAMS = {"safeSearch": True}
-
-    _QUERY_KEY = "query"
-
-    _HEADERS = {"Content-Type": "application/json"}
-
-    _RESULT_PATH = jsonpath_ng.ext.parse("webpages[*]")
-    _TEXT_PATH = jsonpath_ng.parse("body")
+    _ENGINE = stract
 
 
 class RightDao(XPathEngine):
@@ -289,33 +328,10 @@ class Alexandria(JSONEngine):
     _TEXT_PATH = jsonpath_ng.parse("snippet")
 
 
-class Yep(JSONEngine):
+class Yep(SearxEngine):
     """Search on Yep."""
 
-    _URL = "https://api.yep.com/fs/2/search"
-    _PARAMS = {
-        "client": "web",
-        "no_correct": "true",
-        "safeSearch": "strict",
-        "type": "web",
-    }
-
-    _HEADERS = {
-        **XPathEngine._HEADERS,
-        "Accept": "*/*",
-        "Accept-Language": "de,en-US;q=0.7,en;q=0.3",
-        "Referer": "https://yep.com/",
-        "Origin": "https://yep.com",
-        "Sec-Fetch-Dest": "empty",
-        "Sec-Fetch-Mode": "cors",
-        "Sec-Fetch-Site": "same-site",
-    }
-
-    _LANG_MAP = {"de": "DE", "en": "US"}
-    _LANG_KEY = "gl"
-
-    _RESULT_PATH = jsonpath_ng.ext.parse('[1].results[?type="Organic"]')
-    _TEXT_PATH = jsonpath_ng.parse("snippet")
+    _ENGINE = yep
 
 
 class YepImages(Yep):
@@ -323,12 +339,7 @@ class YepImages(Yep):
 
     QUERY_EXTENSIONS = QueryExtensions(0)
 
-    _PARAMS = {**Yep._PARAMS, "type": "images"}
-
-    _RESULT_PATH = jsonpath_ng.ext.parse('[1].results[?type="Image"]')
-    _URL_PATH = jsonpath_ng.parse("host_page")
-    _TEXT_PATH = None
-    _SRC_PATH = jsonpath_ng.parse("src")
+    _MODE = SearchMode.IMAGES
 
 
 class SeSe(JSONEngine):
