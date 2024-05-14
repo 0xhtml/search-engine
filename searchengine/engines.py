@@ -2,7 +2,7 @@
 
 import json
 from enum import Enum
-from typing import ClassVar, Optional, Type, Union
+from typing import ClassVar, Optional, Type, Union, TypeVar
 from urllib.parse import urlencode
 
 import httpx
@@ -83,6 +83,10 @@ class Engine:
         raise NotImplementedError
 
 
+T = TypeVar("T")
+U = TypeVar("U")
+
+
 class CstmEngine(Engine):
     """Base class for a custom search engine."""
 
@@ -97,8 +101,22 @@ class CstmEngine(Engine):
     _LANG_MAP: ClassVar[dict[str, str]]
     _LANG_KEY: ClassVar[str]
 
-    @classmethod
-    def _parse_response(cls, response: httpx.Response) -> list[Result]:
+    _RESULT_PATH: ClassVar[U]
+    _TITLE_PATH: ClassVar[U]
+    _URL_PATH: ClassVar[U]
+    _TEXT_PATH: ClassVar[Optional[U]] = None
+    _SRC_PATH: ClassVar[Optional[U]] = None
+
+    @staticmethod
+    def _parse_response(response: httpx.Response) -> T:
+        raise NotImplementedError
+
+    @staticmethod
+    def _iter(root: T, path: U) -> list[T]:
+        raise NotImplementedError
+
+    @staticmethod
+    def _get(root: T, path: Optional[U]) -> Optional[str]:
         raise NotImplementedError
 
     @classmethod
@@ -120,7 +138,24 @@ class CstmEngine(Engine):
             "data": json.dumps(params) if cls._METHOD == "POST" else None,
         }
 
-        return cls._parse_response(await cls._request(client, req_params))
+        response = await cls._request(client, req_params)
+        root = cls._parse_response(response)
+
+        results = []
+
+        for result in cls._iter(root, cls._RESULT_PATH):
+            if not (title := cls._get(result, cls._TITLE_PATH)):
+                continue
+
+            if not (url := cls._get(result, cls._URL_PATH)):
+                continue
+
+            text = cls._get(result, cls._TEXT_PATH)
+            src = cls._get(result, cls._SRC_PATH)
+
+            results.append(Result(title, httpx.URL(url), text, src))
+
+        return results
 
 
 class XPathEngine(CstmEngine):
@@ -133,11 +168,13 @@ class XPathEngine(CstmEngine):
         "Gecko/20100101 Firefox/125.0",
     }
 
-    _RESULT_PATH: ClassVar[etree.XPath]
-    _TITLE_PATH: ClassVar[etree.XPath]
-    _URL_PATH: ClassVar[etree.XPath]
-    _TEXT_PATH: ClassVar[Optional[etree.XPath]] = None
-    _SRC_PATH: ClassVar[Optional[etree.XPath]] = None
+    @staticmethod
+    def _parse_response(response: httpx.Response) -> html.HtmlElement:
+        return etree.fromstring(response.text, parser=html.html_parser)
+
+    @staticmethod
+    def _iter(root: html.HtmlElement, path: etree.XPath) -> list[str]:
+        return path(root)
 
     @staticmethod
     def _get(root: html.HtmlElement, path: Optional[etree.XPath]) -> Optional[str]:
@@ -149,72 +186,23 @@ class XPathEngine(CstmEngine):
             elems[0], encoding="unicode", method="text", with_tail=False
         )
 
-    @classmethod
-    def _parse_response(cls, response: httpx.Response) -> list[Result]:
-        dom = etree.fromstring(response.text, parser=html.html_parser)
-
-        results = []
-
-        for result in cls._RESULT_PATH(dom):
-            if (url := cls._get(result, cls._URL_PATH)) is None:
-                continue
-
-            if (title := cls._get(result, cls._TITLE_PATH)) is None:
-                continue
-
-            text = cls._get(result, cls._TEXT_PATH)
-
-            if (src := cls._get(result, cls._SRC_PATH)) is not None:
-                src = str(response.url.join(src))
-
-            results.append(Result(title, httpx.URL(url), text, src))
-
-        return results
-
 
 class JSONEngine(CstmEngine):
     """Base class for search engine using JSON."""
 
-    _RESULT_PATH: ClassVar[jsonpath_ng.JSONPath]
-    _TITLE_PATH: ClassVar[jsonpath_ng.JSONPath] = jsonpath_ng.parse("title")
-    _URL_PATH: ClassVar[jsonpath_ng.JSONPath] = jsonpath_ng.parse("url")
-    _TEXT_PATH: ClassVar[Optional[jsonpath_ng.JSONPath]] = None
-    _SRC_PATH: ClassVar[Optional[jsonpath_ng.JSONPath]] = None
+    @staticmethod
+    def _parse_response(response: httpx.Response) -> dict:
+        return response.json()
 
     @staticmethod
-    def _get(
-        root: jsonpath_ng.DatumInContext, path: Optional[jsonpath_ng.JSONPath]
-    ) -> Optional[str]:
-        if path is None or not (elems := path.find(root.value)):
+    def _iter(root: dict, path: jsonpath_ng.JSONPath) -> list[dict]:
+        return path.find(root)
+
+    @staticmethod
+    def _get(root: dict, path: Optional[jsonpath_ng.JSONPath]) -> Optional[str]:
+        if path is None or not (elems := path.find(root)):
             return None
         return elems[0].value
-
-    @classmethod
-    def _parse_response(cls, response: httpx.Response) -> list[Result]:
-        json = response.json()
-
-        results = []
-
-        for result in cls._RESULT_PATH.find(json):
-            if (url := cls._get(result, cls._URL_PATH)) is None:
-                continue
-
-            if (title := cls._get(result, cls._TITLE_PATH)) is None:
-                continue
-
-            if text := cls._get(result, cls._TEXT_PATH):
-                text = html.tostring(
-                    etree.fromstring(text, html.html_parser),
-                    encoding="unicode",
-                    method="text",
-                    with_tail=False,
-                )
-
-            src = cls._get(result, cls._SRC_PATH)
-
-            results.append(Result(title, httpx.URL(url), text, src))
-
-        return results
 
 
 class SearxEngine(Engine):
@@ -325,6 +313,8 @@ class Alexandria(JSONEngine):
     _PARAMS = {"a": "1", "c": "a"}
 
     _RESULT_PATH = jsonpath_ng.ext.parse("results[*]")
+    _TITLE_PATH = jsonpath_ng.parse("title")
+    _URL_PATH = jsonpath_ng.parse("url")
     _TEXT_PATH = jsonpath_ng.parse("snippet")
 
 
