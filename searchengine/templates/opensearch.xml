@@ -1,8 +1,8 @@
-<?xml version="1.0"?>
+<?xml version="1.0" encoding="UTF-8"?>
 <OpenSearchDescription xmlns="http://a9.com/-/spec/opensearch/1.1/" xmlns:moz="http://www.mozilla.org/2006/browser/search/">
     <ShortName>{{ _("Websearch") }}</ShortName>
     <Description>{{ _("A (meta) search engine") }}</Description>
-    <InputEncoding>utf-8</InputEncoding>
+    <InputEncoding>UTF-8</InputEncoding>
     <Url type="text/html" template="{{ url_for("search", q="", _external=True) }}{searchTerms}"/>
     <Url type="application/x-suggestions+json" template="https://duckduckgo.com/ac/?q={searchTerms}&amp;type=list"/>
     <moz:SearchForm>{{ url_for("index", _external=True) }}</moz:SearchForm>

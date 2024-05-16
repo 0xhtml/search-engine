@@ -6,7 +6,7 @@
         <link rel="stylesheet" href="{{ url_for("static", filename="style.css") }}">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="description" content="{{ _("A (meta) search engine") }}">
-        <link rel="search" type="application/opensearchdescription+xml" title="{{ _("Websearch") }}" href="{{ url_for("opensearch") }}">
+        <link rel="search" type="application/opensearchdescription+xml" title="{{ _("Websearch") }}" href="{{ url_for("opensearch", _external=True) }}">
     </head>
     <body>
         {% if error_message is defined %}
