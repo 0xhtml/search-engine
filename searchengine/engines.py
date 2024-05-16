@@ -13,7 +13,7 @@ import jsonpath_ng.ext
 import searx.data
 from lxml import etree, html
 from searx.enginelib.traits import EngineTraits
-from searx.engines import bing, bing_images, google, stract, yep
+from searx.engines import bing, bing_images, google, google_images, stract, yep
 
 from .query import ParsedQuery, QueryExtensions
 from .results import Result
@@ -21,6 +21,7 @@ from .results import Result
 bing.traits = EngineTraits(**searx.data.ENGINE_TRAITS["bing"])
 bing_images.traits = EngineTraits(**searx.data.ENGINE_TRAITS["bing images"])
 google.traits = EngineTraits(**searx.data.ENGINE_TRAITS["google"])
+google_images.traits = EngineTraits(**searx.data.ENGINE_TRAITS["google images"])
 
 
 class _LoggerMixin:
@@ -356,9 +357,16 @@ class Google(SearxEngine):
     _ENGINE = google
 
 
+class GoogleImages(Google):
+    """Search images on Google."""
+
+    _ENGINE = google_images
+    _MODE = SearchMode.IMAGES
+
+
 _MODE_MAP = {
     SearchMode.WEB: {Bing, Mojeek, Stract, Alexandria, RightDao, Yep, SeSe, Google},
-    SearchMode.IMAGES: {BingImages, MojeekImages, YepImages},
+    SearchMode.IMAGES: {BingImages, MojeekImages, YepImages, GoogleImages},
 }
 
 
