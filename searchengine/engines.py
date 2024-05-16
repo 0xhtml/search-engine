@@ -236,12 +236,7 @@ class SearxEngine(Engine):
         response.search_params = params
 
         return [
-            Result(
-                result["title"],
-                httpx.URL(result["url"]),
-                result["content"] or None,
-                result.get("img_src"),
-            )
+            Result.from_dict(result)
             for result in cls._ENGINE.response(response)
             if "title" in result and "url" in result
         ]
