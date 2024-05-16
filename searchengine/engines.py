@@ -4,7 +4,7 @@ from . import importer
 
 import json
 from enum import Enum
-from typing import ClassVar, Optional, Type, Union, TypeVar
+from typing import Any, ClassVar, Optional, Type, TypeVar, Union
 from urllib.parse import urlencode
 
 import httpx
@@ -51,6 +51,8 @@ class Engine:
     SUPPORTED_LANGUAGES: ClassVar[Optional[set[str]]] = None
     QUERY_EXTENSIONS: ClassVar[QueryExtensions] = QueryExtensions.SITE
 
+    _METHOD: ClassVar[str] = "GET"
+
     @classmethod
     def _log(cls, msg: str, tag: Optional[str] = None) -> None:
         if tag is None:
@@ -59,7 +61,33 @@ class Engine:
             print(f"[!] [{cls.__name__}] [{tag}] {msg}")
 
     @classmethod
-    async def _request(cls, client: httpx.AsyncClient, params: dict) -> httpx.Response:
+    def _request(cls, query: ParsedQuery, params: dict[str, Any]) -> dict[str, Any]:
+        raise NotImplementedError
+
+    @classmethod
+    def _response(cls, response: httpx.Response) -> list[Result]:
+        raise NotImplementedError
+
+    @classmethod
+    async def search(
+        cls, client: httpx.AsyncClient, query: ParsedQuery
+    ) -> list[Result]:
+        """Perform a search and return the results."""
+        params = {
+            "searxng_locale": query.lang,
+            "time_range": None,
+            "pageno": 1,
+            "safesearch": 2,
+            "method": cls._METHOD,
+            "headers": {
+                "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:125.0) "
+                "Gecko/20100101 Firefox/125.0"
+            },
+            "data": None,
+            "cookies": {},
+        }
+        params = cls._request(query, params)
+
         try:
             response = await client.request(
                 params["method"],
@@ -77,14 +105,8 @@ class Engine:
                 f" ({response.status_code} {response.reason_phrase})",
             )
 
-        return response
-
-    @classmethod
-    async def search(
-        cls, client: httpx.AsyncClient, query: ParsedQuery
-    ) -> list[Result]:
-        """Perform a search and return the results."""
-        raise NotImplementedError
+        response.search_params = params
+        return cls._response(response)
 
 
 T = TypeVar("T")
@@ -95,7 +117,6 @@ class CstmEngine(Engine):
     """Base class for a custom search engine."""
 
     _URL: ClassVar[str]
-    _METHOD: ClassVar[str] = "GET"
 
     _PARAMS: ClassVar[dict[str, Union[str, bool]]] = {}
     _QUERY_KEY: ClassVar[str] = "q"
@@ -124,26 +145,23 @@ class CstmEngine(Engine):
         raise NotImplementedError
 
     @classmethod
-    async def search(
-        cls, client: httpx.AsyncClient, query: ParsedQuery
-    ) -> list[Result]:
-        params = {cls._QUERY_KEY: str(query), **cls._PARAMS}
+    def _request(cls, query: ParsedQuery, params: dict[str, Any]) -> dict[str, Any]:
+        data = {cls._QUERY_KEY: str(query), **cls._PARAMS}
 
         if hasattr(cls, "_LANG_MAP"):
             lang_name = cls._LANG_MAP.get(query.lang, "")
-            params[cls._LANG_KEY] = lang_name
+            data[cls._LANG_KEY] = lang_name
 
-        req_params = {
-            "method": cls._METHOD,
-            "url": f"{cls._URL}?{urlencode(params)}"
-            if cls._METHOD == "GET"
-            else cls._URL,
-            "headers": cls._HEADERS,
-            "cookies": None,
-            "data": json.dumps(params) if cls._METHOD == "POST" else None,
-        }
+        params["url"] = (
+            f"{cls._URL}?{urlencode(data)}" if cls._METHOD == "GET" else cls._URL
+        )
+        params["headers"].update(cls._HEADERS)
+        params["data"] = json.dumps(data) if cls._METHOD == "POST" else None
 
-        response = await cls._request(client, req_params)
+        return params
+
+    @classmethod
+    def _response(cls, response: httpx.Response) -> list[Result]:
         root = cls._parse_response(response)
 
         results = []
@@ -169,8 +187,6 @@ class XPathEngine(CstmEngine):
     _HEADERS = {
         "Accept": "text/html,application/xhtml+xml,application/xml;"
         "q=0.9,image/avif,image/webp,*/*;q=0.8",
-        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:125.0) "
-        "Gecko/20100101 Firefox/125.0",
     }
 
     @staticmethod
@@ -215,26 +231,12 @@ class SearxEngine(Engine):
     _MODE: ClassVar[SearchMode] = SearchMode.WEB
 
     @classmethod
-    async def search(
-        cls, client: httpx.AsyncClient, query: ParsedQuery
-    ) -> list[Result]:
+    def _request(cls, query: ParsedQuery, params: dict[str, Any]) -> dict[str, Any]:
         cls._ENGINE.search_type = cls._MODE.value
+        return cls._ENGINE.request(str(query), params)
 
-        params = {
-            "cookies": {},
-            "data": None,
-            "headers": {"User-Agent": XPathEngine._HEADERS["User-Agent"]},
-            "method": "GET",
-            "pageno": 1,
-            "safesearch": 2,
-            "searxng_locale": query.lang,
-            "time_range": None,
-        }
-        params = cls._ENGINE.request(str(query), params)
-
-        response = await cls._request(client, params)
-        response.search_params = params
-
+    @classmethod
+    def _response(cls, response: httpx.Response) -> list[Result]:
         return [
             Result.from_dict(result)
             for result in cls._ENGINE.response(response)
