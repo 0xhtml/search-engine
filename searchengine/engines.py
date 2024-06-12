@@ -13,7 +13,8 @@ import jsonpath_ng.ext
 import searx.data
 from lxml import etree, html
 from searx.enginelib.traits import EngineTraits
-from searx.engines import bing, bing_images, google, google_images, stract, yep
+from searx.engines import (bing, bing_images, google, google_images, mojeek,
+                           stract, yep)
 
 from .query import ParsedQuery, QueryExtensions
 from .results import Result
@@ -234,6 +235,8 @@ class SearxEngine(Engine):
     @classmethod
     def _request(cls, query: ParsedQuery, params: dict[str, Any]) -> dict[str, Any]:
         cls._ENGINE.search_type = cls._MODE.value
+        if cls._ENGINE == mojeek and cls._MODE == SearchMode.WEB:
+            cls._ENGINE.search_type = ""
         return cls._ENGINE.request(str(query), params)
 
     @classmethod
@@ -258,28 +261,18 @@ class BingImages(Bing):
     _ENGINE = bing_images
 
 
-class Mojeek(XPathEngine):
+class Mojeek(SearxEngine):
     """Search on Mojeek."""
 
-    _URL = "https://www.mojeek.com/search"
-
-    _RESULT_PATH = etree.XPath('//a[@class="ob"]')
-    _TITLE_PATH = etree.XPath("../h2/a")
-    _URL_PATH = etree.XPath("./@href")
-    _TEXT_PATH = etree.XPath('../p[@class="s"]')
+    _ENGINE = mojeek
 
 
 class MojeekImages(Mojeek):
-    """Search images on Mojeek."""
+    """Search images on Yep."""
 
     QUERY_EXTENSIONS = QueryExtensions(0)
 
-    _PARAMS = {"fmt": "images"}
-
-    _RESULT_PATH = etree.XPath('//a[@class="js-img-a"]')
-    _TITLE_PATH = etree.XPath("./@data-title")
-    _TEXT_PATH = None
-    _SRC_PATH = etree.XPath("./img/@src")
+    _MODE = SearchMode.IMAGES
 
 
 class Stract(SearxEngine):
