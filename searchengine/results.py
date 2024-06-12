@@ -5,6 +5,7 @@ from typing import NamedTuple, Optional
 import httpx
 import regex
 
+from .engines import Engine, Result
 from .lang import detect_lang
 
 
@@ -22,29 +23,10 @@ _SPAM_DOMAINS = _load_domains(
 ) | _load_domains("https://github.com/rimu/no-qanon/raw/master/domains.txt")
 
 
-class Result(NamedTuple):
-    """Single result returned by a search."""
-
-    @classmethod
-    def from_dict(cls, result: dict[str, str]) -> "Result":
-        """Convert a dict returned by searx into a result tuple."""
-        return cls(
-            result["title"],
-            httpx.URL(result["url"]),
-            result["content"] or None,
-            result.get("img_src")
-        )
-
-    title: str
-    url: httpx.URL
-    text: Optional[str]
-    src: Optional[str]
-
-
 class RatedResult:
     """Combined result with a rating and set of engines associated."""
 
-    def __init__(self, result: Result, position: int, engine: type["Engine"]) -> None:
+    def __init__(self, result: Result, position: int, engine: type[Engine]) -> None:
         """Initialize empty rated result."""
         self.title = result.title
         self.url = result.url
@@ -54,7 +36,7 @@ class RatedResult:
         self.rating = (_MAX_RESULTS - position) * engine.WEIGHT
         self.engines = {engine}
 
-    def update(self, result: Result, position: int, engine: type["Engine"]) -> None:
+    def update(self, result: Result, position: int, engine: type[Engine]) -> None:
         """Update rated result by combining the result from another engine."""
         has_higher_weight = engine.WEIGHT > max(e.WEIGHT for e in self.engines)
 
@@ -94,11 +76,11 @@ class RatedResult:
         elif host.endswith(".wikipedia.org"):
             self.rating *= 1.1
         elif host in _SPAM_DOMAINS:
-            self.rating *= 0.6
+            self.rating *= 0.5
 
 
 def order_results(
-    results: list[tuple[type["Engine"], list[Result]]], lang: str
+    results: list[tuple[type[Engine], list[Result]]], lang: str
 ) -> list[RatedResult]:
     """Combine results from all engines and order them."""
     rated_results: dict[httpx.URL, RatedResult] = {}

@@ -4,7 +4,7 @@ from . import importer
 
 import json
 from enum import Enum
-from typing import Any, ClassVar, Optional, Type, TypeVar, Union
+from typing import Any, ClassVar, NamedTuple, Optional, Type, TypeAlias, Union
 from urllib.parse import urlencode
 
 import httpx
@@ -17,7 +17,6 @@ from searx.engines import (bing, bing_images, google, google_images, mojeek,
                            stract, yep)
 
 from .query import ParsedQuery, QueryExtensions
-from .results import Result
 
 bing.traits = EngineTraits(**searx.data.ENGINE_TRAITS["bing"])
 bing_images.traits = EngineTraits(**searx.data.ENGINE_TRAITS["bing images"])
@@ -40,6 +39,25 @@ google.logger = _LoggerMixin("google")
 class SearchMode(Enum):
     WEB = "web"
     IMAGES = "images"
+
+
+class Result(NamedTuple):
+    """Single result returned by a search."""
+
+    @classmethod
+    def from_dict(cls, result: dict[str, str]) -> "Result":
+        """Convert a dict returned by searx into a result tuple."""
+        return cls(
+            result["title"],
+            httpx.URL(result["url"]),
+            result["content"] or None,
+            result.get("img_src"),
+        )
+
+    title: str
+    url: httpx.URL
+    text: Optional[str]
+    src: Optional[str]
 
 
 class EngineError(Exception):
