@@ -130,8 +130,8 @@ class Engine:
         return cls._response(response)
 
 
-T = TypeVar("T")
-U = TypeVar("U")
+Path: TypeAlias = etree.XPath | jsonpath_ng.JSONPath
+Element: TypeAlias = html.HtmlElement | dict
 
 
 class CstmEngine(Engine):
@@ -145,22 +145,22 @@ class CstmEngine(Engine):
     _LANG_MAP: ClassVar[dict[str, str]]
     _LANG_KEY: ClassVar[str]
 
-    _RESULT_PATH: ClassVar[U]
-    _TITLE_PATH: ClassVar[U]
-    _URL_PATH: ClassVar[U]
-    _TEXT_PATH: ClassVar[Optional[U]] = None
-    _SRC_PATH: ClassVar[Optional[U]] = None
+    _RESULT_PATH: ClassVar[Path]
+    _TITLE_PATH: ClassVar[Path]
+    _URL_PATH: ClassVar[Path]
+    _TEXT_PATH: ClassVar[Optional[Path]] = None
+    _SRC_PATH: ClassVar[Optional[Path]] = None
 
     @staticmethod
-    def _parse_response(response: httpx.Response) -> T:
+    def _parse_response(response: httpx.Response) -> Element:
         raise NotImplementedError
 
     @staticmethod
-    def _iter(root: T, path: U) -> list[T]:
+    def _iter(root: Element, path: Path) -> list[Element]:
         raise NotImplementedError
 
     @staticmethod
-    def _get(root: T, path: Optional[U]) -> Optional[str]:
+    def _get(root: Element, path: Optional[Path]) -> Optional[str]:
         raise NotImplementedError
 
     @classmethod
@@ -213,13 +213,16 @@ class XPathEngine(CstmEngine):
         return etree.fromstring(response.text, parser=html.html_parser)
 
     @staticmethod
-    def _iter(root: html.HtmlElement, path: etree.XPath) -> list[str]:
-        return path(root)
+    def _iter(root: html.HtmlElement, path: etree.XPath) -> list[html.HtmlElement]:
+        elems = path(root)
+        assert isinstance(elems, list) and all(isinstance(elem, html.HtmlElement) for elem in elems)
+        return elems
 
     @staticmethod
     def _get(root: html.HtmlElement, path: Optional[etree.XPath]) -> Optional[str]:
         if path is None or not (elems := path(root)):
             return None
+        assert isinstance(elems, list)
         if isinstance(elems[0], str):
             return elems[0]
         return html.tostring(
