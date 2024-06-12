@@ -72,6 +72,10 @@ class Engine:
     QUERY_EXTENSIONS: ClassVar[QueryExtensions] = QueryExtensions.SITE
 
     _METHOD: ClassVar[str] = "GET"
+    _HEADERS: ClassVar[dict[str, str]] = {
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:125.0) "
+        "Gecko/20100101 Firefox/125.0"
+    }
 
     @classmethod
     def _log(cls, msg: str, tag: Optional[str] = None) -> None:
@@ -99,10 +103,7 @@ class Engine:
             "pageno": 1,
             "safesearch": 2,
             "method": cls._METHOD,
-            "headers": {
-                "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:125.0) "
-                "Gecko/20100101 Firefox/125.0"
-            },
+            "headers": cls._HEADERS,
             "data": None,
             "cookies": {},
         }
@@ -113,8 +114,8 @@ class Engine:
                 params["method"],
                 params["url"],
                 headers=params["headers"],
-                cookies=params["cookies"],
                 data=params["data"],
+                cookies=params["cookies"],
             )
         except httpx.RequestError as e:
             raise EngineError(f"Request error on search ({type(e).__name__})") from e
@@ -140,8 +141,6 @@ class CstmEngine(Engine):
 
     _PARAMS: ClassVar[dict[str, Union[str, bool]]] = {}
     _QUERY_KEY: ClassVar[str] = "q"
-
-    _HEADERS: ClassVar[dict[str, str]] = {}
 
     _LANG_MAP: ClassVar[dict[str, str]]
     _LANG_KEY: ClassVar[str]
@@ -175,7 +174,6 @@ class CstmEngine(Engine):
         params["url"] = (
             f"{cls._URL}?{urlencode(data)}" if cls._METHOD == "GET" else cls._URL
         )
-        params["headers"].update(cls._HEADERS)
         params["data"] = json.dumps(data) if cls._METHOD == "POST" else None
 
         return params
@@ -205,6 +203,7 @@ class XPathEngine(CstmEngine):
     """Base class for a x-path search engine."""
 
     _HEADERS = {
+        **CstmEngine._HEADERS,
         "Accept": "text/html,application/xhtml+xml,application/xml;"
         "q=0.9,image/avif,image/webp,*/*;q=0.8",
     }
