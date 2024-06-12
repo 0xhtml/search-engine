@@ -99,8 +99,8 @@ def order_results(
             else:
                 rated_results[url] = RatedResult(result, i, engine)
 
-    for result in rated_results.values():
-        result.eval(lang)
+    for rated_result in rated_results.values():
+        rated_result.eval(lang)
 
     return sorted(
         rated_results.values(),

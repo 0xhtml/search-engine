@@ -4,7 +4,8 @@ from . import importer
 
 import json
 from enum import Enum
-from typing import Any, ClassVar, NamedTuple, Optional, Type, TypeAlias, Union
+from types import ModuleType
+from typing import Any, ClassVar, NamedTuple, Optional, Type, TypeAlias
 from urllib.parse import urlencode
 
 import httpx
@@ -13,8 +14,7 @@ import jsonpath_ng.ext
 import searx.data
 from lxml import etree, html
 from searx.enginelib.traits import EngineTraits
-from searx.engines import (bing, bing_images, google, google_images, mojeek,
-                           stract, yep)
+from searx.engines import bing, bing_images, google, google_images, mojeek, stract, yep
 
 from .query import ParsedQuery, QueryExtensions
 
@@ -28,7 +28,7 @@ class _LoggerMixin:
     def __init__(self, name: str):
         self.name = name
 
-    def debug(self, msg, *args) -> None:
+    def debug(self, msg: str, *args: list) -> None:
         print(f"[!] [{self.name.capitalize()}] {msg % args}")
 
 
@@ -37,6 +37,8 @@ google.logger = _LoggerMixin("google")
 
 
 class SearchMode(Enum):
+    """Search mode determining which type of results to return."""
+
     WEB = "web"
     IMAGES = "images"
 
@@ -62,6 +64,16 @@ class Result(NamedTuple):
 
 class EngineError(Exception):
     """Exception that is raised when a request fails."""
+
+
+class _EngineRequestError(EngineError):
+    def __init__(self, error: httpx.RequestError):
+        super(f"Request error on search ({type(error).__name__})")
+
+
+class _EngineStatusError(EngineError):
+    def __init__(self, status: int, reason: str):
+        super(f"Didn't receive status code 2xx ({status} {reason})")
 
 
 class Engine:
@@ -109,6 +121,11 @@ class Engine:
         }
         params = cls._request(query, params)
 
+        assert isinstance(params["method"], str)
+        assert isinstance(params["url"], str)
+        assert isinstance(params["headers"], dict)
+        assert isinstance(params["cookies"], dict)
+
         try:
             response = await client.request(
                 params["method"],
@@ -118,15 +135,12 @@ class Engine:
                 cookies=params["cookies"],
             )
         except httpx.RequestError as e:
-            raise EngineError(f"Request error on search ({type(e).__name__})") from e
+            raise _EngineRequestError(e) from e
 
         if not response.is_success:
-            raise EngineError(
-                "Didn't receive status code 2xx"
-                f" ({response.status_code} {response.reason_phrase})",
-            )
+            raise _EngineStatusError(response.status_code, response.reason_phrase)
 
-        response.search_params = params
+        response.search_params = params  # type: ignore[attr-defined]
         return cls._response(response)
 
 
@@ -139,7 +153,7 @@ class CstmEngine(Engine):
 
     _URL: ClassVar[str]
 
-    _PARAMS: ClassVar[dict[str, Union[str, bool]]] = {}
+    _PARAMS: ClassVar[dict[str, str | bool]] = {}
     _QUERY_KEY: ClassVar[str] = "q"
 
     _LANG_MAP: ClassVar[dict[str, str]]
@@ -215,7 +229,8 @@ class XPathEngine(CstmEngine):
     @staticmethod
     def _iter(root: html.HtmlElement, path: etree.XPath) -> list[html.HtmlElement]:
         elems = path(root)
-        assert isinstance(elems, list) and all(isinstance(elem, html.HtmlElement) for elem in elems)
+        assert isinstance(elems, list)
+        assert all(isinstance(elem, html.HtmlElement) for elem in elems)
         return elems
 
     @staticmethod
@@ -249,14 +264,16 @@ class JSONEngine(CstmEngine):
 
 
 class SearxEngine(Engine):
-    _ENGINE: ClassVar[object]
+    """Class for a engine defined in searxng."""
+
+    _ENGINE: ClassVar[ModuleType]
     _MODE: ClassVar[SearchMode] = SearchMode.WEB
 
     @classmethod
     def _request(cls, query: ParsedQuery, params: dict[str, Any]) -> dict[str, Any]:
-        cls._ENGINE.search_type = cls._MODE.value
-        if cls._ENGINE == mojeek and cls._MODE == SearchMode.WEB:
-            cls._ENGINE.search_type = ""
+        cls._ENGINE.search_type = cls._MODE.value  # type: ignore[attr-defined]
+        if cls._ENGINE == mojeek and cls._MODE == SearchMode.WEB:  # noqa: SIM300
+            cls._ENGINE.search_type = ""  # type: ignore[attr-defined]
         return cls._ENGINE.request(str(query), params)
 
     @classmethod
@@ -377,7 +394,7 @@ class GoogleImages(Google):
     _MODE = SearchMode.IMAGES
 
 
-_MODE_MAP = {
+_MODE_MAP: dict[SearchMode, set[Type[Engine]]] = {
     SearchMode.WEB: {Bing, Mojeek, Stract, Alexandria, RightDao, Yep, SeSe, Google},
     SearchMode.IMAGES: {BingImages, MojeekImages, YepImages, GoogleImages},
 }
