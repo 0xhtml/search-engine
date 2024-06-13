@@ -102,6 +102,6 @@ class QueryParser:
                 words.append(token.value)
 
         if lang is None:
-            lang = detect_lang(" ".join(words), None)
+            lang = detect_lang(" ".join(words))
 
         return ParsedQuery(words, lang, site)

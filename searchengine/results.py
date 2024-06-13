@@ -1,12 +1,10 @@
 """Module for results."""
 
-from typing import NamedTuple, Optional
-
 import httpx
 import regex
 
 from .engines import Engine, Result
-from .lang import detect_lang
+from .lang import is_lang
 
 
 def _load_domains(url: str) -> set[str]:
@@ -65,8 +63,8 @@ class RatedResult:
         text = f"{self.title} {self.text}"
         if lang != "zh" and regex.search(r"\p{Han}", text):
             self.rating *= 0.5
-        elif detect_lang(text, lang, None) == lang:
-            self.rating += 2
+        else:
+            self.rating += 2 * is_lang(text, lang)
 
         host = self.url.host.removeprefix("www.")
         if host == "docs.python.org":
