@@ -65,7 +65,7 @@ class RatedResult:
         text = f"{self.title} {self.text}"
         if lang != "zh" and regex.search(r"\p{Han}", text):
             self.rating *= 0.5
-        elif detect_lang(text) == lang:
+        elif detect_lang(text, lang, None) == lang:
             self.rating += 2
 
         host = self.url.host.removeprefix("www.")

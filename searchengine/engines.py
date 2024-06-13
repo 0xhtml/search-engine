@@ -156,9 +156,6 @@ class CstmEngine(Engine):
     _PARAMS: ClassVar[dict[str, str | bool]] = {}
     _QUERY_KEY: ClassVar[str] = "q"
 
-    _LANG_MAP: ClassVar[dict[str, str]]
-    _LANG_KEY: ClassVar[str]
-
     _RESULT_PATH: ClassVar[Path]
     _TITLE_PATH: ClassVar[Path]
     _URL_PATH: ClassVar[Path]
@@ -180,10 +177,6 @@ class CstmEngine(Engine):
     @classmethod
     def _request(cls, query: ParsedQuery, params: dict[str, Any]) -> dict[str, Any]:
         data = {cls._QUERY_KEY: str(query), **cls._PARAMS}
-
-        if hasattr(cls, "_LANG_MAP"):
-            lang_name = cls._LANG_MAP.get(query.lang, "")
-            data[cls._LANG_KEY] = lang_name
 
         params["url"] = (
             f"{cls._URL}?{urlencode(data)}" if cls._METHOD == "GET" else cls._URL
@@ -315,7 +308,7 @@ class MojeekImages(Mojeek):
 class Stract(SearxEngine):
     """Search on stract."""
 
-    # FIXME region selection doesn't really work
+    # TODO: region selection doesn't really work
     SUPPORTED_LANGUAGES = {"en"}
     QUERY_EXTENSIONS = QueryExtensions.QUOTES | QueryExtensions.SITE
 
