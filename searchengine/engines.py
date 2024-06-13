@@ -68,12 +68,12 @@ class EngineError(Exception):
 
 class _EngineRequestError(EngineError):
     def __init__(self, error: httpx.RequestError):
-        super(f"Request error on search ({type(error).__name__})")
+        super().__init__(f"Request error on search ({type(error).__name__})")
 
 
 class _EngineStatusError(EngineError):
     def __init__(self, status: int, reason: str):
-        super(f"Didn't receive status code 2xx ({status} {reason})")
+        super().__init__(f"Didn't receive status code 2xx ({status} {reason})")
 
 
 class Engine:
