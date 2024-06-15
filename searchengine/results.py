@@ -36,14 +36,19 @@ class RatedResult:
 
     def update(self, result: Result, position: int, engine: type[Engine]) -> None:
         """Update rated result by combining the result from another engine."""
-        has_higher_weight = engine.WEIGHT > max(e.WEIGHT for e in self.engines)
+        max_weight = max(e.WEIGHT for e in self.engines)
 
         if len(self.title) < len(result.title):
             self.title = result.title
 
         if (
-            self.url.scheme != "https" and result.url.scheme == "https"
-        ) or has_higher_weight:
+            (self.url.scheme != "https" and result.url.scheme == "https")
+            or engine.WEIGHT > max_weight
+            or (
+                engine.WEIGHT == max_weight
+                and len(str(self.url)) > len(str(result.url))
+            )
+        ):
             self.url = result.url
 
         if result.text is not None and (
@@ -51,7 +56,7 @@ class RatedResult:
         ):
             self.text = result.text
 
-        if self.src is None or has_higher_weight:
+        if self.src is None or engine.WEIGHT > max_weight:
             self.src = result.src
 
         if engine not in self.engines:
@@ -87,7 +92,9 @@ def order_results(
         for i, result in enumerate(engine_results[:_MAX_RESULTS]):
             url = result.url.copy_with(
                 scheme="http" if result.url.scheme == "https" else result.url.scheme,
-                host=result.url.host.removeprefix("www."),
+                host=result.url.host.removeprefix("www.").replace(
+                    ".m.wikipedia.org", ".wikipedia.org"
+                ),
                 raw_path=result.url.raw_path.replace(b"%E2%80%93", b"-")
                 if result.url.host.endswith(".wikipedia.org")
                 else result.url.raw_path,
