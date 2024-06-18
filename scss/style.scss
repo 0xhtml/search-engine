@@ -146,50 +146,63 @@ body {
 
     & > li {
         margin-bottom: 1.5em;
+    }
 
-        & > a {
-            text-decoration: none;
-
-            & > img {
-                max-width: 80%;
-                margin: 0 auto;
-                display: block;
-            }
-
-            & > small {
-                color: var(--fg);
-                display: block;
-                font-size: 0.9em;
-                overflow: hidden;
-                text-overflow: ellipsis;
-                white-space: nowrap;
-            }
-
-            & > h3 {
-                color: var(--hbg);
-                display: block;
-                font-weight: normal;
-                margin: 0 0 0.2em;
-                padding: 0.3em 0 0;
-            }
-
-            &:hover > h3,
-            &:focus > h3 {
-                text-decoration: underline;
-            }
-        }
-
-        & > p {
-            -webkit-box-orient: vertical;
-            -webkit-line-clamp: 3;
-            display: -webkit-box;
-            margin: 0;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
+    & a {
+        text-decoration: none;
 
         & > small {
-            color: var(--half);
+            color: var(--fg);
+            display: block;
+            font-size: 0.9em;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        & > h3 {
+            color: var(--hbg);
+            display: block;
+            font-weight: normal;
+            margin: 0 0 0.2em;
+            padding: 0.3em 0 0;
+        }
+
+        &:hover > h3,
+        &:focus > h3 {
+            text-decoration: underline;
+        }
+    }
+
+    & img {
+        max-width: 100%;
+        display: block;
+    }
+
+    & p {
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 3;
+        display: -webkit-box;
+        margin: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    & small {
+        color: var(--half);
+    }
+
+    &.images {
+        display: grid;
+        grid-gap: 1em;
+        grid-template-columns: 1fr 1fr;
+
+        & > li {
+            margin-bottom: 0;
+        }
+
+        @media (max-width: 25em) {
+            grid-template-columns: 1fr;
         }
     }
 }

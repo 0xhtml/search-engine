@@ -14,7 +14,7 @@
         {% endfor %}
     </div>
 </form>
-<ul class="results">
+<ul class="results {{ mode.value }}">
     {% for result in results %}
     <li>
         {% if mode.value == "web" %}
@@ -27,8 +27,7 @@
         {% endif %}
         {% elif mode.value == "images" %}
         <a href="{{ result.url }}">
-            <img src="{{ result.src | proxy }}"{% if not result.text is none %} alt="{{ result.text }}"{% endif %}>
-            <h3>{{ result.title | highlight(parsed_query) }}</h3>
+            <img src="{{ result.src | proxy }}" title="{{ result.title }}"{% if not result.text is none %} alt="{{ result.text }}"{% endif %}>
         </a>
         {% else %}
         <p>Unsupported search mode: {{ mode }}</p>
