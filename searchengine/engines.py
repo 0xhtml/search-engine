@@ -271,6 +271,9 @@ class SearxEngine(Engine):
 
     @classmethod
     def _response(cls, response: httpx.Response) -> list[Result]:
+        if response.text == "":
+            return []
+
         return [
             Result.from_dict(result)
             for result in cls._ENGINE.response(response)
