@@ -2,6 +2,7 @@
 
 from . import importer
 
+import contextlib
 import json
 from enum import Enum
 from types import ModuleType
@@ -201,7 +202,8 @@ class CstmEngine(Engine):
             text = cls._get(result, cls._TEXT_PATH)
             src = cls._get(result, cls._SRC_PATH)
 
-            results.append(Result(title, httpx.URL(url), text, src))
+            with contextlib.suppress(httpx.InvalidURL):
+                results.append(Result(title, httpx.URL(url), text, src))
 
         return results
 
@@ -274,11 +276,12 @@ class SearxEngine(Engine):
         if response.text == "":
             return []
 
-        return [
-            Result.from_dict(result)
-            for result in cls._ENGINE.response(response)
-            if "title" in result and "url" in result
-        ]
+        results = []
+        for result in cls._ENGINE.response(response):
+            if "title" in result and "url" in result:
+                with contextlib.suppress(httpx.InvalidURL):
+                    results.append(Result.from_dict(result))
+        return results
 
 
 class Bing(SearxEngine):
