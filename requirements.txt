@@ -8,5 +8,5 @@ lxml==5.2.2
 ply==3.11
 pytest==7.4.4
 regex==2024.5.10
-searxng @ git+https://github.com/searxng/searxng@46c530988862ef8fe39eed2a605f0fd2221e9a7f
+setuptools
 wheel==0.43.0
