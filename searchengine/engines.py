@@ -433,6 +433,7 @@ class GoogleImages(Google):
 class Reddit(SearxEngine):
     """Search on Reddit."""
 
+    WEIGHT = 0.7
     QUERY_EXTENSIONS = QueryExtensions(0)
 
     _ENGINE = reddit
