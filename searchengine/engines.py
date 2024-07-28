@@ -15,7 +15,16 @@ import jsonpath_ng.ext
 import searx.data
 from lxml import etree, html
 from searx.enginelib.traits import EngineTraits
-from searx.engines import bing, bing_images, google, google_images, mojeek, stract, yep
+from searx.engines import (
+    bing,
+    bing_images,
+    google,
+    google_images,
+    mojeek,
+    reddit,
+    stract,
+    yep,
+)
 
 from .query import ParsedQuery, QueryExtensions
 
@@ -277,10 +286,38 @@ class SearxEngine(Engine):
             return []
 
         results = []
+
         for result in cls._ENGINE.response(response):
-            if "title" in result and "url" in result:
-                with contextlib.suppress(httpx.InvalidURL):
-                    results.append(Result.from_dict(result))
+            try:
+                if (
+                    "number_of_results" in result
+                    or "answer" in result
+                    or "suggestion" in result
+                ):
+                    continue
+
+                assert result["url"]
+
+                if cls._MODE != SearchMode.IMAGES and "img_src" in result:
+                    continue
+
+                if cls._MODE == SearchMode.WEB:
+                    assert result["title"]
+                    assert "img_src" not in result
+                    assert "thumbnail_src" not in result
+                    assert result.get("template", "default.html") == "default.html"
+                elif cls._MODE == SearchMode.IMAGES:
+                    assert "title" in result
+                    assert result["img_src"]
+                    assert "thumbnail_src" not in result or result["thumbnail_src"]
+                    assert result["template"] == "images.html"
+                else:
+                    raise ValueError(f"Unknown mode: {cls._MODE}")
+
+                results.append(Result.from_dict(result))
+            except (KeyError, AssertionError, httpx.InvalidURL) as e:
+                cls._log(f"{type(e).__name__} {e} on {result}")
+
         return results
 
 
@@ -393,8 +430,26 @@ class GoogleImages(Google):
     _MODE = SearchMode.IMAGES
 
 
+class Reddit(SearxEngine):
+    """Search on Reddit."""
+
+    QUERY_EXTENSIONS = QueryExtensions(0)
+
+    _ENGINE = reddit
+
+
 _MODE_MAP: dict[SearchMode, set[Type[Engine]]] = {
-    SearchMode.WEB: {Bing, Mojeek, Stract, Alexandria, RightDao, Yep, SeSe, Google},
+    SearchMode.WEB: {
+        Alexandria,
+        Bing,
+        Google,
+        Mojeek,
+        Reddit,
+        RightDao,
+        SeSe,
+        Stract,
+        Yep,
+    },
     SearchMode.IMAGES: {BingImages, MojeekImages, YepImages, GoogleImages},
 }
 
