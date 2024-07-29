@@ -8,9 +8,10 @@ from flask import Flask, make_response, render_template, request
 
 from .engines import Engine, EngineError, SearchMode, get_engines
 from .query import ParsedQuery, QueryParser
-from .results import Result, order_results
-from .template_filter import TEMPLATE_FILTER_MAP
+from .rate import MAX_RESULTS, rate_results
+from .results import Result
 from .sha import gen_sha
+from .template_filter import TEMPLATE_FILTER_MAP
 
 _ = gettext.translation("msg", "locales", fallback=True).gettext
 _QUERY_PARSER = QueryParser()
@@ -80,7 +81,9 @@ async def search():
                 e.engine._log(str(e))
                 errors.append(e)
 
-    results = order_results(results, parsed_query.lang)
+    results = list(rate_results(results, parsed_query.lang))
+    results.sort(reverse=True)
+    del results[MAX_RESULTS:]
 
     return render_template(
         "search.html",
