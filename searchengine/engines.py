@@ -415,7 +415,7 @@ class SeSe(JSONEngine):
 
     _PARAMS = {"slice": "0:12"}
 
-    _RESULT_PATH = jsonpath_ng.ext.parse("'结果'[*]")
+    _RESULT_PATH = jsonpath_ng.ext.parse("'结果'[?'信息'.'标题' != '']")
     _URL_PATH = jsonpath_ng.parse("'网址'")
     _TITLE_PATH = jsonpath_ng.parse("'信息'.'标题'")
     _TEXT_PATH = jsonpath_ng.parse("'信息'.'描述'")
