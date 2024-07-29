@@ -23,7 +23,7 @@ test: build
 	gzip -fk9 $<
 
 static/style.css: scss/*.scss
-	sass -s compressed scss/style.scss:$@
+	sass -s compressed --embed-source-map scss/style.scss:$@
 
 env: requirements.txt requirements-searx.txt
 	touch -c env
