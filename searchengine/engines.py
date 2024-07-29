@@ -97,6 +97,7 @@ class Engine:
     WEIGHT: ClassVar = 1.0
     SUPPORTED_LANGUAGES: ClassVar[Optional[set[str]]] = None
     QUERY_EXTENSIONS: ClassVar[QueryExtensions] = QueryExtensions.SITE
+    MODE: ClassVar[SearchMode] = SearchMode.WEB
 
     _METHOD: ClassVar[str] = "GET"
     _HEADERS: ClassVar[dict[str, str]] = {
@@ -276,12 +277,11 @@ class SearxEngine(Engine):
     """Class for a engine defined in searxng."""
 
     _ENGINE: ClassVar[ModuleType]
-    _MODE: ClassVar[SearchMode] = SearchMode.WEB
 
     @classmethod
     def _request(cls, query: ParsedQuery, params: dict[str, Any]) -> dict[str, Any]:
-        cls._ENGINE.search_type = cls._MODE.value  # type: ignore[attr-defined]
-        if cls._ENGINE == mojeek and cls._MODE == SearchMode.WEB:  # noqa: SIM300
+        cls._ENGINE.search_type = cls.MODE.value  # type: ignore[attr-defined]
+        if cls._ENGINE == mojeek and cls.MODE == SearchMode.WEB:  # noqa: SIM300
             cls._ENGINE.search_type = ""  # type: ignore[attr-defined]
         return cls._ENGINE.request(str(query), params)
 
@@ -303,21 +303,21 @@ class SearxEngine(Engine):
 
                 assert result["url"]
 
-                if cls._MODE != SearchMode.IMAGES and "img_src" in result:
+                if cls.MODE != SearchMode.IMAGES and "img_src" in result:
                     continue
 
-                if cls._MODE == SearchMode.WEB:
+                if cls.MODE == SearchMode.WEB:
                     assert result["title"]
                     assert "img_src" not in result
                     assert "thumbnail_src" not in result
                     assert result.get("template", "default.html") == "default.html"
-                elif cls._MODE == SearchMode.IMAGES:
+                elif cls.MODE == SearchMode.IMAGES:
                     assert "title" in result
                     assert result["img_src"]
                     assert "thumbnail_src" not in result or result["thumbnail_src"]
                     assert result["template"] == "images.html"
                 else:
-                    raise ValueError(f"Unknown mode: {cls._MODE}")
+                    raise ValueError(f"Unknown mode: {cls.MODE}")
 
                 results.append(Result.from_dict(result))
             except (KeyError, AssertionError, httpx.InvalidURL) as e:
@@ -336,6 +336,7 @@ class Bing(SearxEngine):
 class BingImages(Bing):
     """Search images on Bing."""
 
+    MODE = SearchMode.IMAGES
     _ENGINE = bing_images
 
 
@@ -349,8 +350,7 @@ class MojeekImages(Mojeek):
     """Search images on Yep."""
 
     QUERY_EXTENSIONS = QueryExtensions(0)
-
-    _MODE = SearchMode.IMAGES
+    MODE = SearchMode.IMAGES
 
 
 class Stract(SearxEngine):
@@ -359,7 +359,6 @@ class Stract(SearxEngine):
     # TODO: region selection doesn't really work
     SUPPORTED_LANGUAGES = {"en"}
     QUERY_EXTENSIONS = QueryExtensions.QUOTES | QueryExtensions.SITE
-
     _ENGINE = stract
 
 
@@ -401,9 +400,8 @@ class Yep(SearxEngine):
 class YepImages(Yep):
     """Search images on Yep."""
 
+    MODE = SearchMode.IMAGES
     QUERY_EXTENSIONS = QueryExtensions(0)
-
-    _MODE = SearchMode.IMAGES
 
 
 class SeSe(JSONEngine):
@@ -424,15 +422,14 @@ class Google(SearxEngine):
 
     WEIGHT = 1.3
     QUERY_EXTENSIONS = QueryExtensions.QUOTES | QueryExtensions.SITE
-
     _ENGINE = google
 
 
 class GoogleImages(Google):
     """Search images on Google."""
 
+    MODE = SearchMode.IMAGES
     _ENGINE = google_images
-    _MODE = SearchMode.IMAGES
 
 
 class Reddit(SearxEngine):
@@ -440,23 +437,23 @@ class Reddit(SearxEngine):
 
     WEIGHT = 0.7
     QUERY_EXTENSIONS = QueryExtensions(0)
-
     _ENGINE = reddit
 
 
-_MODE_MAP: dict[SearchMode, set[Type[Engine]]] = {
-    SearchMode.WEB: {
-        Alexandria,
-        Bing,
-        Google,
-        Mojeek,
-        Reddit,
-        RightDao,
-        SeSe,
-        Stract,
-        Yep,
-    },
-    SearchMode.IMAGES: {BingImages, MojeekImages, YepImages, GoogleImages},
+_ENGINES = {
+    Alexandria,
+    Bing,
+    BingImages,
+    Google,
+    GoogleImages,
+    Mojeek,
+    MojeekImages,
+    Reddit,
+    RightDao,
+    SeSe,
+    Stract,
+    Yep,
+    YepImages,
 }
 
 
@@ -464,7 +461,8 @@ def get_engines(mode: SearchMode, query: ParsedQuery) -> set[Type[Engine]]:
     """Return list of enabled engines for the language."""
     return {
         engine
-        for engine in _MODE_MAP.get(mode, set())
+        for engine in _ENGINES
+        if engine.MODE == mode
         if engine.SUPPORTED_LANGUAGES is None
         or query.lang in engine.SUPPORTED_LANGUAGES
         if query.required_extensions() in engine.QUERY_EXTENSIONS
