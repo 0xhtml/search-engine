@@ -27,7 +27,9 @@ application.jinja_env.globals["SearchMode"] = SearchMode
 def error(message: str, code: int = 200):
     """Return error page."""
     if "text/html" in request.headers.get("Accept", ""):
-        return render_template("index.html", title=_("Error"), error_message=message), code
+        return render_template(
+            "index.html", title=_("Error"), error_message=message
+        ), code
 
     response = make_response(message, code)
     response.headers["Content-Type"] = "text/plain"

@@ -83,10 +83,12 @@ class QueryParser:
     def t_error(self, t):
         raise RuntimeError(f"Unexpected token: {t.value}")
 
-    def __init__(self):
+    def __init__(self) -> None:
+        """Initialize the query parser."""
         self.lexer = ply.lex.lex(module=self)
 
     def parse_query(self, query: str) -> ParsedQuery:
+        """Parse a search query into a ParsedQuery object."""
         self.lexer.input(query)
 
         words = []

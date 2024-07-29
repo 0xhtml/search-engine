@@ -1,6 +1,6 @@
 """Module to perform a search."""
 
-from . import importer
+from . import importer  # isort: skip
 
 import json
 from enum import Enum
@@ -35,7 +35,7 @@ google_images.traits = EngineTraits(**searx.data.ENGINE_TRAITS["google images"])
 
 
 class _LoggerMixin:
-    def __init__(self, name: str):
+    def __init__(self, name: str) -> None:
         self.name = name
 
     def debug(self, msg: str, *args: list) -> None:
@@ -83,7 +83,7 @@ class Engine:
     _METHOD: ClassVar[str] = "GET"
     _HEADERS: ClassVar[dict[str, str]] = {
         "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:125.0) "
-        "Gecko/20100101 Firefox/125.0"
+        "Gecko/20100101 Firefox/125.0",
     }
 
     @classmethod
@@ -103,7 +103,9 @@ class Engine:
 
     @classmethod
     async def search(
-        cls, client: httpx.AsyncClient, query: ParsedQuery
+        cls,
+        client: httpx.AsyncClient,
+        query: ParsedQuery,
     ) -> list[Result]:
         """Perform a search and return the results."""
         params = {
@@ -220,7 +222,7 @@ class XPathEngine(CstmEngine):
 
     @staticmethod
     def _parse_response(response: httpx.Response) -> html.HtmlElement:
-        return etree.fromstring(response.text, parser=html.html_parser)
+        return html.document_fromstring(response.text)
 
     @staticmethod
     def _iter(root: html.HtmlElement, path: etree.XPath) -> list[html.HtmlElement]:
@@ -237,7 +239,10 @@ class XPathEngine(CstmEngine):
         if isinstance(elems[0], str):
             return elems[0]
         return html.tostring(
-            elems[0], encoding="unicode", method="text", with_tail=False
+            elems[0],
+            encoding="unicode",
+            method="text",
+            with_tail=False,
         )
 
 
