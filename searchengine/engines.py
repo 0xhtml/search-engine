@@ -75,15 +75,20 @@ class Result(NamedTuple):
 class EngineError(Exception):
     """Exception that is raised when a request fails."""
 
+    def __init__(self, engine: type["Engine"], msg: str) -> None:
+        """Initialize the exception."""
+        self.engine = engine
+        super().__init__(msg)
+
 
 class _EngineRequestError(EngineError):
-    def __init__(self, error: httpx.RequestError):
-        super().__init__(f"Request error on search ({type(error).__name__})")
+    def __init__(self, engine: type["Engine"], error: httpx.RequestError) -> None:
+        super().__init__(engine, f"Request error on search ({type(error).__name__})")
 
 
 class _EngineStatusError(EngineError):
-    def __init__(self, status: int, reason: str):
-        super().__init__(f"Didn't receive status code 2xx ({status} {reason})")
+    def __init__(self, engine: type["Engine"], status: int, reason: str) -> None:
+        super().__init__(engine, f"Didn't receive status code 2xx ({status} {reason})")
 
 
 class Engine:
@@ -145,10 +150,10 @@ class Engine:
                 cookies=params["cookies"],
             )
         except httpx.RequestError as e:
-            raise _EngineRequestError(e) from e
+            raise _EngineRequestError(cls, e) from e
 
         if not response.is_success:
-            raise _EngineStatusError(response.status_code, response.reason_phrase)
+            raise _EngineStatusError(cls, response.status_code, response.reason_phrase)
 
         response.search_params = params  # type: ignore[attr-defined]
         return cls._response(response)

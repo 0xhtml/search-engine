@@ -45,12 +45,8 @@ def index():
 
 async def _engine_search(
     engine: type[Engine], client: httpx.AsyncClient, query: ParsedQuery
-) -> tuple[type[Engine], list[Result] | EngineError]:
-    try:
-        return engine, await engine.search(client, query)
-    except EngineError as e:
-        engine._log(str(e))
-        return engine, e
+) -> tuple[type[Engine], list[Result]]:
+    return engine, await engine.search(client, query)
 
 
 @application.route("/search")
@@ -68,21 +64,21 @@ async def search():
     mode = request.args.get("mode", SearchMode.WEB, SearchMode)
     engines = get_engines(mode, parsed_query)
 
+    errors = []
+    results = []
+
     async with httpx.AsyncClient(
         limits=httpx.Limits(max_connections=10),
         timeout=httpx.Timeout(5, pool=None),
     ) as client:
-        results_and_errors = await asyncio.gather(
-            *[_engine_search(engine, client, parsed_query) for engine in engines]
-        )
-
-    errors = []
-    results = []
-    for item in results_and_errors:
-        if isinstance(item[1], EngineError):
-            errors.append(item)
-        else:
-            results.append(item)
+        for coro in asyncio.as_completed(
+            _engine_search(engine, client, parsed_query) for engine in engines
+        ):
+            try:
+                results.append(await coro)
+            except EngineError as e:
+                e.engine._log(str(e))
+                errors.append(e)
 
     results = order_results(results, parsed_query.lang)
 

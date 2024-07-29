@@ -41,7 +41,7 @@
     <h4>{{ _("Error") }}</h4>
     <ul>
         {% for error in engine_errors %}
-        <li>{{ error[0].__name__ }}: {{ error[1] }}</li>
+        <li>{{ error.engine.__name__ }}: {{ error }}</li>
         {% endfor %}
     </ul>
 </div>
