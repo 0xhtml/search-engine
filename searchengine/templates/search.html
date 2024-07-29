@@ -14,27 +14,26 @@
         {% endfor %}
     </div>
 </form>
-<ul class="results {{ mode.value }}">
-    {% for result in results %}
-    <li>
-        {% if mode.value == "web" %}
-        <a href="{{ result.url }}">
-            <small>{{ result.url | pretty_url }}</small>
-            <h3>{{ result.title | highlight(parsed_query) }}</h3>
+<ul class="results">
+    {% for r in results %}<li class="{{ r.result_type() }}">
+        {% if r.result_type() == "web" %}
+        <a href="{{ r.result.url }}">
+            <small>{{ r.result.url | pretty_url }}</small>
+            <h3>{{ r.result.title | highlight(parsed_query) }}</h3>
         </a>
-        {% if not result.text is none %}
-        <p>{{ result.text | highlight(parsed_query) }}</p>
+        {% if not r.result.text is none %}
+        <p>{{ r.result.text | highlight(parsed_query) }}</p>
         {% endif %}
-        {% elif mode.value == "images" %}
-        <a href="{{ result.url }}">
-            <img src="{{ result.src | proxy }}" title="{{ result.title }}"{% if not result.text is none %} alt="{{ result.text }}"{% endif %}>
+        {% elif r.result_type() == "image" %}
+        <a href="{{ r.result.url }}">
+            <img src="{{ r.result.src | proxy }}" title="{{ r.result.title }}"{% if not r.result.text is none %} alt="{{ r.result.text }}"{% endif %}>
         </a>
-        {% else %}
-        <p>Unsupported search mode: {{ mode }}</p>
+        {% elif r.result_type() == "answer" %}
+        <p>{{ r.result.answer }}</p>
+        <a href="{{ r.result.url }}">{{ r.result.url.host }}</a>
         {% endif %}
-        <small>{{ "{:.1f}".format(result.rating) }} - {{ result.engines | map(attribute="__name__") | sort | join(" ") }}</small>
-    </li>
-    {% endfor %}
+        <small>{{ "{:.1f}".format(r.rating) }} - {{ r.engines | map(attribute="__name__") | sort | join(" ") }}</small>
+    </li>{% endfor %}
 </ul>
 {% if engine_errors %}
 <div class="error">

@@ -5,7 +5,7 @@ import regex
 
 from .engines import Engine
 from .lang import is_lang
-from .results import Result
+from .results import AnswerResult, ImageResult, Result, WebResult
 
 
 def _load_domains(url: str) -> set[str]:
@@ -44,41 +44,45 @@ class RatedResult:
 
     def __init__(self, result: Result, position: int, engine: type[Engine]) -> None:
         """Initialize empty rated result."""
-        self.title = result.title
-        self.url = result.url
-        self.text = result.text
-        self.src = result.src
-
+        self.result = result
         self.rating = (MAX_RESULTS - position) * engine.WEIGHT
         self.engines = {engine}
 
     def update(self, result: Result, position: int, engine: type[Engine]) -> bool:
         """Update rated result by combining the result from another engine."""
-        if _comparable_url(self.url) != _comparable_url(result.url):
+        if isinstance(result, WebResult) and not isinstance(self.result, WebResult):
+            return False
+        if isinstance(result, ImageResult) and not isinstance(self.result, ImageResult):
+            return False
+        if isinstance(result, AnswerResult) or isinstance(self.result, AnswerResult):
+            return False
+        if _comparable_url(self.result.url) != _comparable_url(result.url):
             return False
 
         max_weight = max(e.WEIGHT for e in self.engines)
 
-        if len(self.title) < len(result.title):
-            self.title = result.title
+        if result.text is not None and (
+            self.result.text is None or len(self.result.text) < len(result.text)
+        ):
+            self.result = self.result._replace(text=result.text)
 
         if (
-            (self.url.scheme != "https" and result.url.scheme == "https")
+            (self.result.url.scheme != "https" and result.url.scheme == "https")
             or engine.WEIGHT > max_weight
             or (
                 engine.WEIGHT == max_weight
-                and len(str(self.url)) > len(str(result.url))
+                and len(str(self.result.url)) > len(str(result.url))
             )
         ):
-            self.url = result.url
+            self.result = self.result._replace(url=result.url)
 
-        if result.text is not None and (
-            self.text is None or len(self.text) < len(result.text)
-        ):
-            self.text = result.text
+        if len(self.result.title) < len(result.title):
+            self.result = self.result._replace(title=result.title)
 
-        if self.src is None or engine.WEIGHT > max_weight:
-            self.src = result.src
+        if isinstance(self.result, ImageResult):
+            assert isinstance(result, ImageResult)
+            if self.result.src is None or engine.WEIGHT > max_weight:
+                self.result = self.result._replace(src=result.src)
 
         if engine not in self.engines:
             self.rating += (MAX_RESULTS - position) * engine.WEIGHT
@@ -88,14 +92,21 @@ class RatedResult:
 
     def eval(self, lang: str) -> None:
         """Run additional result evaluation and update rating."""
-        text = f"{self.title} {self.text or ''}"
+        if isinstance(self.result, WebResult | ImageResult):
+            text = self.result.title
+            if self.result.text is not None:
+                text += " " + self.result.text
+        elif isinstance(self.result, AnswerResult):
+            text = self.result.answer
+        else:
+            raise _InvalidResultTypeError
 
         if lang != "zh" and regex.search(r"\p{Han}", text):
             self.rating *= 0.5
         else:
             self.rating += 2 * is_lang(text, lang)
 
-        host = self.url.host.removeprefix("www.")
+        host = self.result.url.host.removeprefix("www.")
         if host == "docs.python.org":
             self.rating *= 1.5
         elif host in {"stackoverflow.com", "reddit.com"}:
@@ -105,8 +116,22 @@ class RatedResult:
         elif host in _SPAM_DOMAINS:
             self.rating *= 0.5
 
+    def result_type(self) -> str:
+        """Get the type of the result as a simple string."""
+        if isinstance(self.result, WebResult):
+            return "web"
+        if isinstance(self.result, ImageResult):
+            return "image"
+        if isinstance(self.result, AnswerResult):
+            return "answer"
+        raise _InvalidResultTypeError
+
     def __lt__(self, other: "RatedResult") -> bool:
         """Compare two rated results by rating."""
+        self_answer = isinstance(self.result, AnswerResult)
+        other_answer = isinstance(other.result, AnswerResult)
+        if self_answer != other_answer:
+            return self_answer < other_answer
         return self.rating < other.rating
 
 

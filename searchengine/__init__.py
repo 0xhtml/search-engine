@@ -17,6 +17,8 @@ _ = gettext.translation("msg", "locales", fallback=True).gettext
 _QUERY_PARSER = QueryParser()
 
 application = Flask(__name__)
+application.jinja_env.trim_blocks = True
+application.jinja_env.lstrip_blocks = True
 application.jinja_env.filters.update(TEMPLATE_FILTER_MAP)
 application.jinja_env.globals["_"] = _
 application.jinja_env.globals["SearchMode"] = SearchMode

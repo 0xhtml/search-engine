@@ -2,7 +2,6 @@
 
 from . import importer
 
-import contextlib
 import json
 from enum import Enum
 from types import ModuleType
@@ -27,7 +26,7 @@ from searx.engines import (
 )
 
 from .query import ParsedQuery, QueryExtensions
-from .results import Result
+from .results import AnswerResult, ImageResult, Result, WebResult
 
 bing.traits = EngineTraits(**searx.data.ENGINE_TRAITS["bing"])
 bing_images.traits = EngineTraits(**searx.data.ENGINE_TRAITS["bing images"])
@@ -187,20 +186,25 @@ class CstmEngine(Engine):
     def _response(cls, response: httpx.Response) -> list[Result]:
         root = cls._parse_response(response)
 
-        results = []
+        results: list[Result] = []
 
         for result in cls._iter(root, cls._RESULT_PATH):
-            if not (title := cls._get(result, cls._TITLE_PATH)):
-                continue
+            title = cls._get(result, cls._TITLE_PATH)
+            assert title
 
-            if not (url := cls._get(result, cls._URL_PATH)):
-                continue
+            _url = cls._get(result, cls._URL_PATH)
+            assert _url
+            url = httpx.URL(_url)
 
             text = cls._get(result, cls._TEXT_PATH)
-            src = cls._get(result, cls._SRC_PATH)
 
-            with contextlib.suppress(httpx.InvalidURL):
-                results.append(Result(title, httpx.URL(url), text, src))
+            if cls.MODE == SearchMode.IMAGES:
+                src = cls._get(result, cls._SRC_PATH)
+                assert src
+                results.append(ImageResult(title, url, text or None, httpx.URL(src)))
+                continue
+
+            results.append(WebResult(title, url, text or None))
 
         return results
 
@@ -269,41 +273,54 @@ class SearxEngine(Engine):
 
     @classmethod
     def _response(cls, response: httpx.Response) -> list[Result]:
-        if response.text == "":
+        if not response.text:
             return []
 
-        results = []
+        results: list[Result] = []
 
         for result in cls._ENGINE.response(response):
-            try:
-                if (
-                    "number_of_results" in result
-                    or "answer" in result
-                    or "suggestion" in result
-                ):
-                    continue
+            if "number_of_results" in result or "suggestion" in result:
+                continue
 
-                assert result["url"]
+            assert "url" in result
+            assert isinstance(result["url"], str)
+            assert result["url"]
 
-                if cls.MODE != SearchMode.IMAGES and "img_src" in result:
-                    continue
+            url = httpx.URL(result["url"])
 
-                if cls.MODE == SearchMode.WEB:
-                    assert result["title"]
-                    assert "img_src" not in result
-                    assert "thumbnail_src" not in result
-                    assert result.get("template", "default.html") == "default.html"
-                elif cls.MODE == SearchMode.IMAGES:
-                    assert "title" in result
-                    assert result["img_src"]
-                    assert "thumbnail_src" not in result or result["thumbnail_src"]
-                    assert result["template"] == "images.html"
-                else:
-                    raise ValueError(f"Unknown mode: {cls.MODE}")
+            if "answer" in result:
+                assert isinstance(result["answer"], str)
+                assert result["answer"]
+                results.append(AnswerResult(result["answer"], url))
+                continue
 
-                results.append(Result.from_dict(result))
-            except (KeyError, AssertionError, httpx.InvalidURL) as e:
-                cls._log(f"{type(e).__name__} {e} on {result}")
+            assert "title" in result
+            assert isinstance(result["title"], str)
+            assert result["title"]
+
+            if "img_src" in result:
+                assert isinstance(result["img_src"], str)
+                assert result["img_src"]
+                assert result.get("template") == "images.html"
+                results.append(
+                    ImageResult(
+                        result["title"],
+                        url,
+                        result.get("content") or None,
+                        httpx.URL(result["img_src"]),
+                    )
+                )
+                continue
+
+            assert "content" in result
+            assert isinstance(result["content"], str)
+            results.append(
+                WebResult(
+                    result["title"],
+                    url,
+                    result["content"] or None,
+                )
+            )
 
         return results
 

@@ -150,6 +150,7 @@ body {
 
     & a {
         text-decoration: none;
+        color: var(--hbg);
 
         & > small {
             color: var(--fg);
@@ -161,7 +162,6 @@ body {
         }
 
         & > h3 {
-            color: var(--hbg);
             display: block;
             font-weight: normal;
             margin: 0 0 0.2em;
@@ -174,12 +174,11 @@ body {
         }
     }
 
-    & img {
-        max-width: 100%;
-        display: block;
+    & small {
+        color: var(--half);
     }
 
-    & p {
+    & > .web > p {
         -webkit-box-orient: vertical;
         -webkit-line-clamp: 3;
         display: -webkit-box;
@@ -188,21 +187,27 @@ body {
         text-overflow: ellipsis;
     }
 
-    & small {
-        color: var(--half);
+    & > .image {
+        width: calc(50% - 1em);
+        margin-right: 1em;
+        display: inline-block;
+
+        img {
+            max-width: 100%;
+        }
     }
 
-    &.images {
-        display: grid;
-        grid-gap: 1em;
-        grid-template-columns: 1fr 1fr;
+    & > .answer {
+        background: var(--muted);
+        padding: 0.5em;
+        border-radius: 0.25em;
 
-        & > li {
-            margin-bottom: 0;
+        & > p {
+            margin: 0 0 0.5em;
         }
 
-        @media (max-width: 25em) {
-            grid-template-columns: 1fr;
+        & > small {
+            float: right;
         }
     }
 }

@@ -45,7 +45,7 @@ def _pretty_url(url: httpx.URL) -> markupsafe.Markup:
     )
 
 
-def _proxy(url: str) -> str:
+def _proxy(url: httpx.URL) -> str:
     return url_for("img", url=url, sha=gen_sha(url))
 
 
