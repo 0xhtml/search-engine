@@ -1,1 +1,0 @@
-searxng@git+https://github.com/searxng/searxng@d7bb97b616e1a322b86ef3e0bd26bf728780a08b
