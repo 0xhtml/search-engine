@@ -9,8 +9,7 @@ build_static: static/style.css.gz static/logo.png.gz
 
 
 run: build
-	uwsgi --ini uwsgi.ini --http 127.0.0.1:5000
-
+	env/bin/uvicorn searchengine:app --reload
 
 test: build
 	env/bin/python -m pytest
@@ -28,8 +27,9 @@ static/style.css: scss/*.scss
 env: requirements.txt requirements-searx.txt
 	touch -c env
 	test -d env || python -m venv env
-	env/bin/pip install -r requirements.txt
+	env/bin/pip install setuptools pyyaml
 	env/bin/pip install --no-build-isolation -r requirements-searx.txt
+	env/bin/pip install -r requirements.txt
 
 lid.176.bin:
 	wget https://dl.fbaipublicfiles.com/fasttext/supervised-models/$@

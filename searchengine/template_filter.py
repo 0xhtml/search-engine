@@ -1,8 +1,10 @@
 """Module containing filter functions for the templates."""
 
+from urllib.parse import urlencode
+
 import httpx
 import markupsafe
-from flask import url_for
+from jinja2 import pass_context
 
 from .query import ParsedQuery
 from .sha import gen_sha
@@ -45,8 +47,13 @@ def _pretty_url(url: httpx.URL) -> markupsafe.Markup:
     )
 
 
-def _proxy(url: httpx.URL) -> str:
-    return url_for("img", url=url, sha=gen_sha(url))
+@pass_context
+def _proxy(ctx: dict, url: httpx.URL) -> str:
+    return (
+        str(ctx["request"].url_for("img"))
+        + "?"
+        + urlencode({"url": url, "sha": gen_sha(url)})
+    )
 
 
 TEMPLATE_FILTER_MAP = {
