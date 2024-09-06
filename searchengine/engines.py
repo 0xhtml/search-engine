@@ -11,39 +11,25 @@ from urllib.parse import urlencode
 import httpx
 import jsonpath_ng
 import jsonpath_ng.ext
+import searx
 import searx.data
+import searx.enginelib
+import searx.engines
 from lxml import etree, html
-from searx.enginelib.traits import EngineTraits
-from searx.engines import (
-    bing,
-    bing_images,
-    google,
-    google_images,
-    mojeek,
-    reddit,
-    stract,
-    yep,
-)
 
 from .query import ParsedQuery, QueryExtensions
 from .results import AnswerResult, ImageResult, Result, WebResult
 
-bing.traits = EngineTraits(**searx.data.ENGINE_TRAITS["bing"])
-bing_images.traits = EngineTraits(**searx.data.ENGINE_TRAITS["bing images"])
-google.traits = EngineTraits(**searx.data.ENGINE_TRAITS["google"])
-google_images.traits = EngineTraits(**searx.data.ENGINE_TRAITS["google images"])
 
-
-class _LoggerMixin:
-    def __init__(self, name: str) -> None:
-        self.name = name
-
-    def debug(self, msg: str, *args: list) -> None:
-        print(f"[!] [{self.name.capitalize()}] {msg % args}")
-
-
-bing.logger = _LoggerMixin("bing")
-google.logger = _LoggerMixin("google")
+def _load_searx_engine(name: str) -> searx.enginelib.Engine | ModuleType:
+    """Load a searx engine."""
+    for engine in searx.settings["engines"]:
+        if engine["name"] == name:
+            ret = searx.engines.load_engine(engine)
+            if ret is None:
+                raise ValueError(f"Failed to load searx engine {name}")
+            return ret
+    raise ValueError(f"Searx engine {name} not found")
 
 
 class SearchMode(Enum):
@@ -272,7 +258,7 @@ class SearxEngine(Engine):
     @classmethod
     def _request(cls, query: ParsedQuery, params: dict[str, Any]) -> dict[str, Any]:
         cls._ENGINE.search_type = cls.MODE.value  # type: ignore[attr-defined]
-        if cls._ENGINE == mojeek and cls.MODE == SearchMode.WEB:  # noqa: SIM300
+        if cls._ENGINE.name == "mojeek" and cls.MODE == SearchMode.WEB:
             cls._ENGINE.search_type = ""  # type: ignore[attr-defined]
         return cls._ENGINE.request(str(query), params)
 
@@ -334,20 +320,20 @@ class Bing(SearxEngine):
     """Search on Bing."""
 
     WEIGHT = 1.3
-    _ENGINE = bing
+    _ENGINE = _load_searx_engine("bing")
 
 
 class BingImages(Bing):
     """Search images on Bing."""
 
     MODE = SearchMode.IMAGES
-    _ENGINE = bing_images
+    _ENGINE = _load_searx_engine("bing images")
 
 
 class Mojeek(SearxEngine):
     """Search on Mojeek."""
 
-    _ENGINE = mojeek
+    _ENGINE = _load_searx_engine("mojeek")
 
 
 class MojeekImages(Mojeek):
@@ -363,7 +349,7 @@ class Stract(SearxEngine):
     # TODO: region selection doesn't really work
     SUPPORTED_LANGUAGES = {"en"}
     QUERY_EXTENSIONS = QueryExtensions.QUOTES | QueryExtensions.SITE
-    _ENGINE = stract
+    _ENGINE = _load_searx_engine("stract")
 
 
 class RightDao(XPathEngine):
@@ -398,7 +384,7 @@ class Alexandria(JSONEngine):
 class Yep(SearxEngine):
     """Search on Yep."""
 
-    _ENGINE = yep
+    _ENGINE = _load_searx_engine("yep")
 
 
 class YepImages(Yep):
@@ -426,14 +412,14 @@ class Google(SearxEngine):
 
     WEIGHT = 1.3
     QUERY_EXTENSIONS = QueryExtensions.QUOTES | QueryExtensions.SITE
-    _ENGINE = google
+    _ENGINE = _load_searx_engine("google")
 
 
 class GoogleImages(Google):
     """Search images on Google."""
 
     MODE = SearchMode.IMAGES
-    _ENGINE = google_images
+    _ENGINE = _load_searx_engine("google images")
 
 
 class Reddit(SearxEngine):
@@ -441,7 +427,7 @@ class Reddit(SearxEngine):
 
     WEIGHT = 0.7
     QUERY_EXTENSIONS = QueryExtensions(0)
-    _ENGINE = reddit
+    _ENGINE = _load_searx_engine("reddit")
 
 
 _ENGINES = {
