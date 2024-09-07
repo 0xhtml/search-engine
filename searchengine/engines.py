@@ -42,20 +42,10 @@ class SearchMode(Enum):
 class EngineError(Exception):
     """Exception that is raised when a request fails."""
 
-    def __init__(self, engine: type["Engine"], msg: str) -> None:
+    def __init__(self, engine: type["Engine"], error: Exception) -> None:
         """Initialize the exception."""
         self.engine = engine
-        super().__init__(msg)
-
-
-class _EngineRequestError(EngineError):
-    def __init__(self, engine: type["Engine"], error: httpx.RequestError) -> None:
-        super().__init__(engine, f"Request error on search ({type(error).__name__})")
-
-
-class _EngineStatusError(EngineError):
-    def __init__(self, engine: type["Engine"], status: int, reason: str) -> None:
-        super().__init__(engine, f"Didn't receive status code 2xx ({status} {reason})")
+        super().__init__(f"{type(error).__name__}: {error}")
 
 
 class Engine:
@@ -119,11 +109,9 @@ class Engine:
                 data=params["data"],
                 cookies=params["cookies"],
             )
-        except httpx.RequestError as e:
-            raise _EngineRequestError(cls, e) from e
-
-        if not response.is_success:
-            raise _EngineStatusError(cls, response.status_code, response.reason_phrase)
+            response.raise_for_status()
+        except httpx.HTTPError as e:
+            raise EngineError(cls, e) from e
 
         response.search_params = params  # type: ignore[attr-defined]
         return cls._response(response)
