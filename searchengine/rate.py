@@ -1,17 +1,18 @@
 """Module for rating results."""
 
-import httpx
 import regex
+from curl_cffi.requests import get
 
 from .engines import Engine
 from .lang import is_lang
 from .results import AnswerResult, ImageResult, Result, WebResult
+from .url import Url
 
 
 def _load_domains(url: str) -> set[str]:
     return {
         x.removeprefix("www.")
-        for x in httpx.get(url).text.splitlines()
+        for x in get(url).text.splitlines()
         if not x.startswith("#")
     }
 
@@ -22,16 +23,16 @@ _SPAM_DOMAINS = _load_domains(
 ) | _load_domains("https://github.com/rimu/no-qanon/raw/master/domains.txt")
 
 
-def _comparable_url(url: httpx.URL) -> httpx.URL:
+def _comparable_url(url: Url) -> Url:
     assert url.scheme in {"http", "https"}
-    return url.copy_with(
+    return url._replace(
         scheme="http",
-        host=url.host.removeprefix("www.").replace(
+        netloc=url.host.removeprefix("www.").replace(
             ".m.wikipedia.org", ".wikipedia.org"
         ),
-        raw_path=url.raw_path.replace(b"%E2%80%93", b"-")
+        path=url.path.replace("%E2%80%93", "-")
         if url.host.endswith(".wikipedia.org")
-        else url.raw_path,
+        else url.path,
     )
 
 

@@ -8,17 +8,19 @@ from types import ModuleType
 from typing import Any, ClassVar, Optional, Type, TypeAlias
 from urllib.parse import urlencode
 
-import httpx
+import curl_cffi
 import jsonpath_ng
 import jsonpath_ng.ext
 import searx
 import searx.data
 import searx.enginelib
 import searx.engines
+from curl_cffi.requests import AsyncSession, Response
 from lxml import etree, html
 
 from .query import ParsedQuery, QueryExtensions
 from .results import AnswerResult, ImageResult, Result, WebResult
+from .url import Url
 
 
 def _load_searx_engine(name: str) -> searx.enginelib.Engine | ModuleType:
@@ -42,10 +44,27 @@ class SearchMode(Enum):
 class EngineError(Exception):
     """Exception that is raised when a request fails."""
 
-    def __init__(self, engine: type["Engine"], error: Exception) -> None:
+    @classmethod
+    def from_exception(cls, engine: type["Engine"], error: Exception) -> "EngineError":
+        """Create an exception from another exception."""
+        msg = str(type(error).__name__)
+        if str(error):
+            msg += f": {error}"
+        return cls(engine, msg)
+
+    @classmethod
+    def from_status(cls, engine: type["Engine"], response: Response) -> "EngineError":
+        """Create an exception from a response status."""
+        return cls(
+            engine,
+            "Didn't receive status code 2xx "
+            f"({response.status_code} {response.reason})",
+        )
+
+    def __init__(self, engine: type["Engine"], msg: str) -> None:
         """Initialize the exception."""
         self.engine = engine
-        super().__init__(f"{type(error).__name__}: {error}")
+        super().__init__(msg)
 
 
 class Engine:
@@ -57,10 +76,7 @@ class Engine:
     MODE: ClassVar[SearchMode] = SearchMode.WEB
 
     _METHOD: ClassVar[str] = "GET"
-    _HEADERS: ClassVar[dict[str, str]] = {
-        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:125.0) "
-        "Gecko/20100101 Firefox/125.0",
-    }
+    _HEADERS: ClassVar[dict[str, str]] = {}
 
     @classmethod
     def _log(cls, msg: str, tag: Optional[str] = None) -> None:
@@ -74,13 +90,13 @@ class Engine:
         raise NotImplementedError
 
     @classmethod
-    def _response(cls, response: httpx.Response) -> list[Result]:
+    def _response(cls, response: Response) -> list[Result]:
         raise NotImplementedError
 
     @classmethod
     async def search(
         cls,
-        client: httpx.AsyncClient,
+        session: AsyncSession,
         query: ParsedQuery,
     ) -> list[Result]:
         """Perform a search and return the results."""
@@ -100,20 +116,24 @@ class Engine:
         assert isinstance(params["url"], str)
         assert isinstance(params["headers"], dict)
         assert isinstance(params["cookies"], dict)
+        assert isinstance(params["data"], str) or params["data"] is None
 
         try:
-            response = await client.request(
+            response = await session.request(
                 params["method"],
                 params["url"],
                 headers=params["headers"],
                 data=params["data"],
                 cookies=params["cookies"],
             )
-            response.raise_for_status()
-        except httpx.HTTPError as e:
-            raise EngineError(cls, e) from e
+        except curl_cffi.CurlError as e:
+            raise EngineError.from_exception(cls, e) from e
+
+        if not (200 <= response.status_code < 300):
+            raise EngineError.from_status(cls, response)
 
         response.search_params = params  # type: ignore[attr-defined]
+        response.url = Url(response.url)
         return cls._response(response)
 
 
@@ -136,7 +156,7 @@ class CstmEngine(Engine):
     _SRC_PATH: ClassVar[Optional[Path]] = None
 
     @staticmethod
-    def _parse_response(response: httpx.Response) -> Element:
+    def _parse_response(response: Response) -> Element:
         raise NotImplementedError
 
     @staticmethod
@@ -159,7 +179,7 @@ class CstmEngine(Engine):
         return params
 
     @classmethod
-    def _response(cls, response: httpx.Response) -> list[Result]:
+    def _response(cls, response: Response) -> list[Result]:
         root = cls._parse_response(response)
 
         results: list[Result] = []
@@ -170,14 +190,14 @@ class CstmEngine(Engine):
 
             _url = cls._get(result, cls._URL_PATH)
             assert _url
-            url = httpx.URL(_url)
+            url = Url(_url)
 
             text = cls._get(result, cls._TEXT_PATH)
 
             if cls.MODE == SearchMode.IMAGES:
                 src = cls._get(result, cls._SRC_PATH)
                 assert src
-                results.append(ImageResult(title, url, text or None, httpx.URL(src)))
+                results.append(ImageResult(title, url, text or None, Url(src)))
                 continue
 
             results.append(WebResult(title, url, text or None))
@@ -195,7 +215,7 @@ class XPathEngine(CstmEngine):
     }
 
     @staticmethod
-    def _parse_response(response: httpx.Response) -> html.HtmlElement:
+    def _parse_response(response: Response) -> html.HtmlElement:
         return html.document_fromstring(response.text)
 
     @staticmethod
@@ -224,7 +244,7 @@ class JSONEngine(CstmEngine):
     """Base class for search engine using JSON."""
 
     @staticmethod
-    def _parse_response(response: httpx.Response) -> dict:
+    def _parse_response(response: Response) -> dict:
         return response.json()
 
     @staticmethod
@@ -251,7 +271,7 @@ class SearxEngine(Engine):
         return cls._ENGINE.request(str(query), params)
 
     @classmethod
-    def _response(cls, response: httpx.Response) -> list[Result]:
+    def _response(cls, response: Response) -> list[Result]:
         if not response.text:
             return []
 
@@ -265,7 +285,7 @@ class SearxEngine(Engine):
             assert isinstance(result["url"], str)
             assert result["url"]
 
-            url = httpx.URL(result["url"])
+            url = Url(result["url"])
 
             if "answer" in result:
                 assert isinstance(result["answer"], str)
@@ -286,7 +306,7 @@ class SearxEngine(Engine):
                         result["title"],
                         url,
                         result.get("content") or None,
-                        httpx.URL(result["img_src"]),
+                        Url(result["img_src"]),
                     )
                 )
                 continue

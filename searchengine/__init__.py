@@ -3,8 +3,9 @@
 import asyncio
 import gettext
 
-import httpx
+import curl_cffi
 import jinja2
+from curl_cffi.requests import AsyncSession
 from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.responses import HTMLResponse, Response
@@ -18,6 +19,7 @@ from .rate import MAX_RESULTS, rate_results
 from .results import Result
 from .sha import gen_sha
 from .template_filter import TEMPLATE_FILTER_MAP
+from .url import Url
 
 _ = gettext.translation("msg", "locales", fallback=True).gettext
 
@@ -58,9 +60,9 @@ def index(request: Request) -> HTMLResponse:
 
 
 async def _engine_search(
-    engine: type[Engine], client: httpx.AsyncClient, query: ParsedQuery
+    engine: type[Engine], session: AsyncSession, query: ParsedQuery
 ) -> tuple[type[Engine], list[Result]]:
-    return engine, await engine.search(client, query)
+    return engine, await engine.search(session, query)
 
 
 async def search(request: Request) -> Response:
@@ -80,12 +82,9 @@ async def search(request: Request) -> Response:
     errors = []
     results = []
 
-    async with httpx.AsyncClient(
-        limits=httpx.Limits(max_connections=10),
-        timeout=httpx.Timeout(5, pool=None),
-    ) as client:
+    async with AsyncSession(timeout=5, impersonate="chrome") as session:
         for coro in asyncio.as_completed(
-            _engine_search(engine, client, parsed_query) for engine in engines
+            _engine_search(engine, session, parsed_query) for engine in engines
         ):
             try:
                 results.append(await coro)
@@ -111,23 +110,27 @@ async def search(request: Request) -> Response:
     )
 
 
-def img(request: Request) -> Response:
+async def img(request: Request) -> Response:
     """Proxy an image."""
     url = request.query_params.get("url", None)
     if url is None:
         return _error(request, "Not Found", 404)
 
     sha = request.query_params.get("sha", None)
-    if sha is None or gen_sha(httpx.URL(url)) != sha:
+    if sha is None or gen_sha(Url(url)) != sha:
         return _error(request, "Unauthorized", 401)
 
-    try:
-        resp = httpx.get(url)
-        resp.raise_for_status()
-        if not resp.headers.get("Content-Type", "").startswith("image/"):
-            raise httpx.HTTPError("Not an image")
-    except httpx.HTTPError as e:
-        return _error(request, str(e), 500)
+    async with AsyncSession(impersonate="chrome") as session:
+        try:
+            resp = await session.get(url)
+        except curl_cffi.CurlError as e:
+            return _error(request, str(e), 500)
+
+    if not (200 <= resp.status_code < 300):
+        return _error(request, f"{resp.status_code} {resp.reason}", resp.status_code)
+
+    if not resp.headers.get("Content-Type", "").startswith("image/"):
+        return _error(request, "Not an image", 500)
 
     return Response(
         content=resp.content, media_type=resp.headers["Content-Type"]

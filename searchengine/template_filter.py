@@ -1,13 +1,13 @@
 """Module containing filter functions for the templates."""
 
-from urllib.parse import urlencode
+from urllib.parse import unquote, urlencode
 
-import httpx
 import markupsafe
 from jinja2 import pass_context
 
 from .query import ParsedQuery
 from .sha import gen_sha
+from .url import Url
 
 
 def _highlight(string: str, query: ParsedQuery) -> markupsafe.Markup:
@@ -30,25 +30,12 @@ def _highlight(string: str, query: ParsedQuery) -> markupsafe.Markup:
     return string
 
 
-def _pretty_url(url: httpx.URL) -> markupsafe.Markup:
-    assert url.is_absolute_url
-    return markupsafe.escape(
-        "".join(
-            [
-                url.scheme,
-                "://",
-                url.host,
-                f":{url.port}" if url.port is not None else "",
-                url.path,
-                f"?{url.params}" if url.query else "",
-                f"#{url.fragment}" if url.fragment else "",
-            ],
-        ),
-    )
+def _pretty_url(url: Url) -> markupsafe.Markup:
+    return markupsafe.escape(url._replace(path=unquote(url.path)))
 
 
 @pass_context
-def _proxy(ctx: dict, url: httpx.URL) -> str:
+def _proxy(ctx: dict, url: Url) -> str:
     return (
         str(ctx["request"].url_for("img"))
         + "?"
