@@ -295,22 +295,23 @@ class SearxEngine(Engine):
 
             assert "title" in result
             assert isinstance(result["title"], str)
-            assert result["title"]
 
             if "img_src" in result:
-                assert isinstance(result["img_src"], str)
-                assert result["img_src"]
+                src = result.get("thumbnail_src", result["img_src"])
+                assert isinstance(src, str)
+                assert src
                 assert result.get("template") == "images.html"
                 results.append(
                     ImageResult(
                         result["title"],
                         url,
                         result.get("content") or None,
-                        Url(result["img_src"]),
+                        Url(src),
                     )
                 )
                 continue
 
+            assert result["title"]
             assert "content" in result
             assert isinstance(result["content"], str)
             results.append(
