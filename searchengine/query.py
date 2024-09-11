@@ -53,31 +53,24 @@ class ParsedQuery(NamedTuple):
 class QueryParser:
     """Parser for search queries."""
 
-    tokens = ("LANG", "SITE", "WORD")
+    tokens = ("LANG", "SITE", "QUOTED_WORD", "WORD")
 
     def t_LANG(self, t):
-        r":\S*"
-        if t.value == ":":
-            t.type = "WORD"
-            return t
-        t.value = t.value.removeprefix(":")
-        if t.value:
-            if t.value[0] == ":":
-                t.type = "WORD"
-            return t
+        r"lang:\S+|:(de|en)(?!\S)"
+        t.value = t.value.removeprefix("lang").removeprefix(":")
+        return t
 
     def t_SITE(self, t):
-        r"site:\S*"
+        r"site:\S+"
         t.value = t.value.removeprefix("site:")
-        if t.value:
-            return t
+        return t
 
-    def t_WORD(self, t):
-        r'"[^"]*("|$)|\S+'
+    def t_QUOTED_WORD(self, t):
+        r'"[^"]+("|$)'
         t.value = t.value.strip('"')
-        if t.value:
-            return t
+        return t
 
+    t_WORD = r"\S+"
     t_ignore = " "
 
     def t_error(self, t):
@@ -100,7 +93,7 @@ class QueryParser:
                 lang = token.value
             elif token.type == "SITE":
                 site = token.value
-            elif token.type == "WORD":
+            else:
                 words.append(token.value)
 
         if lang is None:
