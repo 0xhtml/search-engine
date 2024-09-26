@@ -6,7 +6,7 @@ import json
 from enum import Enum
 from types import ModuleType
 from typing import Any, ClassVar, Optional, Type, TypeAlias
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urljoin
 
 import curl_cffi
 import jsonpath_ng
@@ -190,7 +190,7 @@ class CstmEngine(Engine):
 
             _url = cls._get(result, cls._URL_PATH)
             assert _url
-            url = Url(_url)
+            url = Url(urljoin(str(response.url), _url))
 
             text = cls._get(result, cls._TEXT_PATH)
 
@@ -283,7 +283,8 @@ class SearxEngine(Engine):
 
             assert "url" in result
             assert isinstance(result["url"], str)
-            assert result["url"]
+            if not result["url"]:
+                continue
 
             url = Url(result["url"])
 
