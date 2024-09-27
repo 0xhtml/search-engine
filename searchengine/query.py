@@ -11,6 +11,7 @@ from .lang import detect_lang
 class QueryExtensions(Flag):
     """Special query extensions that can be used."""
 
+    PAGING = auto()
     QUOTES = auto()
     SITE = auto()
 
@@ -27,12 +28,16 @@ class ParsedQuery(NamedTuple):
 
     words: list[str]
     mode: SearchMode
+    page: int
     lang: str
     site: Optional[str]
 
     def required_extensions(self) -> QueryExtensions:
         """Determine which extensions are required for this query."""
         extensions = QueryExtensions(0)
+
+        if self.page != 1:
+            extensions |= QueryExtensions.PAGING
 
         if any(" " in word for word in self.words):
             extensions |= QueryExtensions.QUOTES
@@ -88,7 +93,7 @@ class QueryParser:
         """Initialize the query parser."""
         self.lexer = ply.lex.lex(module=self)
 
-    def parse_query(self, query: str, mode: SearchMode) -> ParsedQuery:
+    def parse_query(self, query: str, mode: SearchMode, page: int) -> ParsedQuery:
         """Parse a search query into a ParsedQuery object."""
         self.lexer.input(query)
 
@@ -107,4 +112,4 @@ class QueryParser:
         if lang is None:
             lang = detect_lang(" ".join(words))
 
-        return ParsedQuery(words, mode, lang, site)
+        return ParsedQuery(words, mode, page, lang, site)

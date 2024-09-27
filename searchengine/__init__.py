@@ -77,7 +77,12 @@ async def search(request: Request) -> Response:
 
     mode = SearchMode(request.query_params.get("mode", SearchMode.WEB))
 
-    parsed_query = _QUERY_PARSER.parse_query(query, mode)
+    try:
+        page = int(request.query_params["page"])
+    except (ValueError, KeyError):
+        page = 1
+
+    parsed_query = _QUERY_PARSER.parse_query(query, mode, page)
     engines = get_engines(parsed_query)
 
     errors = []

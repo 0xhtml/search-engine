@@ -64,7 +64,7 @@ class Engine:
 
     WEIGHT: ClassVar = 1.0
     SUPPORTED_LANGUAGES: ClassVar[Optional[set[str]]] = None
-    QUERY_EXTENSIONS: ClassVar[QueryExtensions] = QueryExtensions.SITE
+    QUERY_EXTENSIONS: ClassVar[QueryExtensions] = QueryExtensions(0)
     MODE: ClassVar[SearchMode] = SearchMode.WEB
 
     _METHOD: ClassVar[str] = "GET"
@@ -95,7 +95,7 @@ class Engine:
         params = {
             "searxng_locale": query.lang,
             "time_range": None,
-            "pageno": 1,
+            "pageno": query.page,
             "safesearch": 2,
             "method": cls._METHOD,
             "headers": cls._HEADERS,
@@ -322,6 +322,7 @@ class Bing(SearxEngine):
     """Search on Bing."""
 
     WEIGHT = 1.3
+    QUERY_EXTENSIONS = QueryExtensions.SITE | QueryExtensions.PAGING
     _ENGINE = _load_searx_engine("bing")
 
 
@@ -335,13 +336,13 @@ class BingImages(Bing):
 class Mojeek(SearxEngine):
     """Search on Mojeek."""
 
+    QUERY_EXTENSIONS = QueryExtensions.SITE | QueryExtensions.PAGING
     _ENGINE = _load_searx_engine("mojeek")
 
 
 class MojeekImages(Mojeek):
-    """Search images on Yep."""
+    """Search images on Mojeek."""
 
-    QUERY_EXTENSIONS = QueryExtensions(0)
     MODE = SearchMode.IMAGES
 
 
@@ -350,28 +351,27 @@ class Stract(SearxEngine):
 
     # TODO: region selection doesn't really work
     SUPPORTED_LANGUAGES = {"en"}
-    QUERY_EXTENSIONS = QueryExtensions.QUOTES | QueryExtensions.SITE
+    QUERY_EXTENSIONS = (
+        QueryExtensions.QUOTES | QueryExtensions.SITE | QueryExtensions.PAGING
+    )
     _ENGINE = _load_searx_engine("stract")
 
 
-class RightDao(XPathEngine):
+class RightDao(SearxEngine):
     """Search on Right Dao."""
 
     SUPPORTED_LANGUAGES = {"en"}
-    QUERY_EXTENSIONS = QueryExtensions.QUOTES | QueryExtensions.SITE
-
-    _URL = "https://rightdao.com/search"
-
-    _RESULT_PATH = etree.XPath('//div[@class="description"]')
-    _TITLE_PATH = etree.XPath('../div[@class="title"]')
-    _URL_PATH = etree.XPath('../div[@class="title"]/a/@href')
-    _TEXT_PATH = etree.XPath(".")
+    QUERY_EXTENSIONS = (
+        QueryExtensions.QUOTES | QueryExtensions.SITE | QueryExtensions.PAGING
+    )
+    _ENGINE = _load_searx_engine("right dao")
 
 
 class Alexandria(JSONEngine):
     """Search on Alexandria an English only search engine."""
 
     SUPPORTED_LANGUAGES = {"en"}
+    QUERY_EXTENSIONS = QueryExtensions.SITE
 
     _URL = "https://api.alexandria.org"
 
@@ -386,6 +386,7 @@ class Alexandria(JSONEngine):
 class Yep(SearxEngine):
     """Search on Yep."""
 
+    QUERY_EXTENSIONS = QueryExtensions.SITE
     _ENGINE = _load_searx_engine("yep")
 
 
@@ -393,11 +394,12 @@ class YepImages(Yep):
     """Search images on Yep."""
 
     MODE = SearchMode.IMAGES
-    QUERY_EXTENSIONS = QueryExtensions(0)
 
 
 class SeSe(JSONEngine):
     """Search on SeSe."""
+
+    QUERY_EXTENSIONS = QueryExtensions.SITE
 
     _URL = "https://se-proxy.azurewebsites.net/api/search"
 
