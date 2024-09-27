@@ -7,11 +7,28 @@
         <input type="reset" value="&times;" onclick="event.preventDefault();document.getElementsByName('q')[0].value=''">
         <input type="submit" value="{{ _("Search") }}">
     </div>
-    <div class="modes">
+    <div class="options">
         {% for m in SearchMode %}
         <input type="radio" name="mode" value="{{ m.value }}" id="{{ m.value }}" {% if m == parsed_query.mode %}checked{% else %}onchange="document.getElementsByTagName('form')[0].submit()"{% endif %}>
         <label for="{{ m.value }}">{{ _(m.value) }}</label>
         {% endfor %}
+        {% if parsed_query.page < 5 %}
+        {% for i in range(1, 6) %}
+        <input type="submit" name="page" value="{{ i }}"{% if parsed_query.page == i %} disabled{% endif %}>
+        {% endfor %}
+        {% else %}
+        <input type="submit" name="page" value="1">
+        <span>&hellip;</span>
+        {% if parsed_query.page < 9 %}
+        <input type="submit" name="page" value="{{ parsed_query.page - 1 }}">
+        <input type="submit" name="page" value="{{ parsed_query.page }}" disabled>
+        <input type="submit" name="page" value="{{ parsed_query.page + 1 }}">
+        {% else %}
+        <input type="submit" name="page" value="{{ parsed_query.page - 2 }}">
+        <input type="submit" name="page" value="{{ parsed_query.page - 1 }}">
+        <input type="submit" name="page" value="{{ parsed_query.page }}" disabled>
+        {% endif %}
+        {% endif %}
     </div>
 </form>
 <ul class="results">

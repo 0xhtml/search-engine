@@ -63,7 +63,7 @@ body {
     border: 1px solid $border;
     display: flex;
     height: 3em;
-    margin: 2em 0;
+    margin: 2em 0 .75em;
 
     &:focus-within {
         box-shadow: 0 0 0.4em var(--muted);
@@ -114,26 +114,40 @@ body {
     }
 }
 
-.modes {
-    margin: -1.25em calc(.5em + 1px) 1.5em;
+.options {
+    margin: 0 calc(.5em + 1px) 1.5em;
     display: flex;
 
-    & > input {
+    & > [type="radio"] {
         display: none;
     }
 
-    & > label {
-        cursor: pointer;
-        margin: 0 .4em;
+    & > label, & > [type="submit"], & > span {
         padding: .5em .6em;
+    }
+
+    & > label, & > [type="submit"] {
+        cursor: pointer;
         border-radius: 1em;
+        margin: 0 .2em;
 
         &:hover {
             background: var(--muted);
         }
     }
 
-    & > input:checked + label {
+    & > [type="submit"] {
+        border: none;
+        background: none;
+        color: inherit;
+    }
+
+    & > [value="1"] {
+        margin-left: auto;
+    }
+
+    & > [type="radio"]:checked + label, & > [type="submit"]:disabled {
+        cursor: default;
         background: var(--hbg);
         color: var(--hfg);
     }
