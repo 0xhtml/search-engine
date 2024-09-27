@@ -9,7 +9,7 @@
     </div>
     <div class="modes">
         {% for m in SearchMode %}
-        <input type="radio" name="mode" value="{{ m.value }}" id="{{ m.value }}" {% if m == mode %}checked{% else %}onchange="document.getElementsByTagName('form')[0].submit()"{% endif %}>
+        <input type="radio" name="mode" value="{{ m.value }}" id="{{ m.value }}" {% if m == parsed_query.mode %}checked{% else %}onchange="document.getElementsByTagName('form')[0].submit()"{% endif %}>
         <label for="{{ m.value }}">{{ _(m.value) }}</label>
         {% endfor %}
     </div>

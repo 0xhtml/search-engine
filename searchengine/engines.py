@@ -3,7 +3,6 @@
 from . import importer  # isort: skip
 
 import json
-from enum import Enum
 from types import ModuleType
 from typing import Any, ClassVar, Optional, Type, TypeAlias
 from urllib.parse import urlencode, urljoin
@@ -18,7 +17,7 @@ import searx.engines
 from curl_cffi.requests import AsyncSession, Response
 from lxml import etree, html
 
-from .query import ParsedQuery, QueryExtensions
+from .query import ParsedQuery, QueryExtensions, SearchMode
 from .results import AnswerResult, ImageResult, Result, WebResult
 from .url import Url
 
@@ -32,13 +31,6 @@ def _load_searx_engine(name: str) -> searx.enginelib.Engine | ModuleType:
                 raise ValueError(f"Failed to load searx engine {name}")
             return ret
     raise ValueError(f"Searx engine {name} not found")
-
-
-class SearchMode(Enum):
-    """Search mode determining which type of results to return."""
-
-    WEB = "web"
-    IMAGES = "images"
 
 
 class EngineError(Exception):
@@ -457,12 +449,12 @@ _ENGINES = {
 }
 
 
-def get_engines(mode: SearchMode, query: ParsedQuery) -> set[Type[Engine]]:
+def get_engines(query: ParsedQuery) -> set[Type[Engine]]:
     """Return list of enabled engines for the language."""
     return {
         engine
         for engine in _ENGINES
-        if engine.MODE == mode
+        if engine.MODE == query.mode
         if engine.SUPPORTED_LANGUAGES is None
         or query.lang in engine.SUPPORTED_LANGUAGES
         if query.required_extensions() in engine.QUERY_EXTENSIONS

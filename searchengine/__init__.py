@@ -75,9 +75,10 @@ async def search(request: Request) -> Response:
     if not query:
         return _error(request, _("The search term is empty"))
 
-    parsed_query = _QUERY_PARSER.parse_query(query)
     mode = SearchMode(request.query_params.get("mode", SearchMode.WEB))
-    engines = get_engines(mode, parsed_query)
+
+    parsed_query = _QUERY_PARSER.parse_query(query, mode)
+    engines = get_engines(parsed_query)
 
     errors = []
     results = []
@@ -103,7 +104,6 @@ async def search(request: Request) -> Response:
             "title": query,
             "query": query,
             "parsed_query": parsed_query,
-            "mode": mode,
             "results": rated_results,
             "engine_errors": errors,
         },

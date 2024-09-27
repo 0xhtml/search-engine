@@ -1,6 +1,6 @@
 """Module containing functions to work with queries."""
 
-from enum import Flag, auto
+from enum import Enum, Flag, auto
 from typing import NamedTuple, Optional
 
 import ply.lex
@@ -15,10 +15,18 @@ class QueryExtensions(Flag):
     SITE = auto()
 
 
+class SearchMode(Enum):
+    """Search mode determining which type of results to return."""
+
+    WEB = "web"
+    IMAGES = "images"
+
+
 class ParsedQuery(NamedTuple):
     """Query parsed into actual query and extra data."""
 
     words: list[str]
+    mode: SearchMode
     lang: str
     site: Optional[str]
 
@@ -80,7 +88,7 @@ class QueryParser:
         """Initialize the query parser."""
         self.lexer = ply.lex.lex(module=self)
 
-    def parse_query(self, query: str) -> ParsedQuery:
+    def parse_query(self, query: str, mode: SearchMode) -> ParsedQuery:
         """Parse a search query into a ParsedQuery object."""
         self.lexer.input(query)
 
@@ -99,4 +107,4 @@ class QueryParser:
         if lang is None:
             lang = detect_lang(" ".join(words))
 
-        return ParsedQuery(words, lang, site)
+        return ParsedQuery(words, mode, lang, site)
