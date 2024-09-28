@@ -31,6 +31,10 @@ body {
     width: 100%;
 }
 
+img {
+    max-width: 100%;
+}
+
 .error {
     $bg: #d20313;
     $line-spacing: 0.25em;
@@ -157,12 +161,15 @@ body {
     list-style-type: none;
     padding: 0;
     margin: 1em;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-gap: 1.25em;
 
     & > li {
-        margin-bottom: 1.5em;
     }
 
     & a {
+        display: block;
         text-decoration: none;
         color: var(--hbg);
 
@@ -192,26 +199,25 @@ body {
         color: var(--half);
     }
 
-    & > .web > p {
-        -webkit-box-orient: vertical;
-        -webkit-line-clamp: 3;
-        display: -webkit-box;
-        margin: 0;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
+    & > .web {
+        grid-column: 1 / span 2;
 
-    & > .image {
-        width: calc(50% - 1em);
-        margin-right: 1em;
-        display: inline-block;
-
-        img {
-            max-width: 100%;
+        & > p {
+            -webkit-box-orient: vertical;
+            -webkit-line-clamp: 3;
+            display: -webkit-box;
+            margin: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
     }
 
+    & > .image {
+        place-self: center;
+    }
+
     & > .answer {
+        grid-column: 1 / span 2;
         background: var(--muted);
         padding: 0.5em;
         border-radius: 0.25em;
