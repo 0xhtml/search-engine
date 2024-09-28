@@ -3,7 +3,7 @@
 from typing import Optional
 
 import pytest
-from searchengine.query import QueryParser
+from searchengine.query import QueryParser, SearchMode
 
 
 @pytest.mark.parametrize(
@@ -27,7 +27,7 @@ def test_parse_query(
     query: str, words: list[str], lang: Optional[str], site: Optional[str]
 ) -> None:
     """Test the parse_query function."""
-    parsed_query = QueryParser().parse_query(query)
+    parsed_query = QueryParser().parse_query(query, SearchMode.WEB, 1)
     assert parsed_query.words == words
     if lang is not None:
         assert parsed_query.lang == lang

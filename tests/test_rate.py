@@ -15,6 +15,14 @@ _WEB = WebResult(None, None, None)
 _IMAGE = ImageResult(None, None, None, None)
 _ANSWER = AnswerResult(None, None)
 
+class _Engine(Engine):
+    def _request(self):
+        pass
+    def _response(self):
+        pass
+
+_ENGINE = _Engine("engine")
+
 
 class _Cmp(enum.Enum):
     LT = enum.auto()
@@ -28,17 +36,17 @@ _CMPS = ((0, 0, _Cmp.EQ), (0, 1, _Cmp.GT), (1, 0, _Cmp.LT))
 @pytest.mark.parametrize(
     ("a", "b", "cmp"),
     [
-        (RatedResult(result, a, Engine), RatedResult(result, b, Engine), cmp)
+        (RatedResult(result, a, _ENGINE), RatedResult(result, b, _ENGINE), cmp)
         for result in (_WEB, _IMAGE, _ANSWER)
         for a, b, cmp in _CMPS
     ]
     + [
-        (RatedResult(result, a, Engine), RatedResult(_ANSWER, b, Engine), _Cmp.LT)
+        (RatedResult(result, a, _ENGINE), RatedResult(_ANSWER, b, _ENGINE), _Cmp.LT)
         for result in (_WEB, _IMAGE)
         for a, b, _ in _CMPS
     ]
     + [
-        (RatedResult(_ANSWER, a, Engine), RatedResult(result, b, Engine), _Cmp.GT)
+        (RatedResult(_ANSWER, a, _ENGINE), RatedResult(result, b, _ENGINE), _Cmp.GT)
         for result in (_WEB, _IMAGE)
         for a, b, _ in _CMPS
     ],
