@@ -2,6 +2,7 @@
 
 import asyncio
 import gettext
+import traceback
 
 import curl_cffi
 import jinja2
@@ -13,7 +14,7 @@ from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 from starlette.templating import Jinja2Templates
 
-from .engines import Engine, EngineError, SearchMode, get_engines
+from .engines import Engine, SearchMode, get_engines
 from .query import ParsedQuery, QueryParser
 from .rate import MAX_RESULTS, rate_results
 from .results import Result
@@ -59,13 +60,24 @@ def index(request: Request) -> HTMLResponse:
     return _TEMPLATES.TemplateResponse(request, "index.html", {"title": _("Search")})
 
 
+class _EngineError(Exception):
+    def __init__(self, engine: type[Engine], exc: BaseException) -> None:
+        self.engine = engine
+        self.exc = exc
+
+    def __str__(self) -> str:
+        return f"{self.engine.__name__}: {traceback.format_exception_only(self.exc)[0]}"
+
+
 async def _engine_search(
     engine: type[Engine], session: AsyncSession, query: ParsedQuery
 ) -> tuple[type[Engine], list[Result]]:
     try:
         return engine, await engine.search(session, query)
-    except asyncio.CancelledError as e:
-        raise EngineError.from_exception(engine, e) from e
+    except BaseException as e:
+        if not isinstance(e, asyncio.CancelledError):
+            traceback.print_exc()
+        raise _EngineError(engine, e) from e
 
 
 async def search(request: Request) -> Response:
@@ -104,7 +116,7 @@ async def search(request: Request) -> Response:
             for task in done:
                 try:
                     results.append(task.result())
-                except EngineError as e:
+                except _EngineError as e:
                     errors.append(e)
             if (
                 {e for e, _ in results} | {e.engine for e in errors}
@@ -117,7 +129,7 @@ async def search(request: Request) -> Response:
             task.cancel()
             try:
                 results.append(await task)
-            except EngineError as e:
+            except _EngineError as e:
                 errors.append(e)
 
     rated_results = list(rate_results(results, parsed_query.lang))

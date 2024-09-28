@@ -7,7 +7,6 @@ from types import ModuleType
 from typing import Any, ClassVar, Optional, Type, TypeAlias
 from urllib.parse import urlencode, urljoin
 
-import curl_cffi
 import jsonpath_ng
 import jsonpath_ng.ext
 import searx
@@ -33,32 +32,12 @@ def _load_searx_engine(name: str) -> searx.enginelib.Engine | ModuleType:
     raise ValueError(f"Searx engine {name} not found")
 
 
-class EngineError(Exception):
-    """Exception that is raised when a request fails."""
+class StatusCodeError(Exception):
+    """Exception that is raised if a request to an engine doesn't return 2xx."""
 
-    @classmethod
-    def from_exception(
-        cls, engine: type["Engine"], error: BaseException
-    ) -> "EngineError":
-        """Create an exception from another exception."""
-        msg = str(type(error).__name__)
-        if str(error):
-            msg += f": {error}"
-        return cls(engine, msg)
-
-    @classmethod
-    def from_status(cls, engine: type["Engine"], response: Response) -> "EngineError":
-        """Create an exception from a response status."""
-        return cls(
-            engine,
-            "Didn't receive status code 2xx "
-            f"({response.status_code} {response.reason})",
-        )
-
-    def __init__(self, engine: type["Engine"], msg: str) -> None:
-        """Initialize the exception."""
-        self.engine = engine
-        super().__init__(msg)
+    def __init__(self, response: Response) -> None:
+        """Initialize the exception w/ an Response object."""
+        super().__init__(f"{response.status_code} {response.reason}")
 
 
 class Engine:
@@ -113,19 +92,16 @@ class Engine:
         assert isinstance(params["cookies"], dict)
         assert isinstance(params["data"], str) or params["data"] is None
 
-        try:
-            response = await session.request(
-                params["method"],
-                params["url"],
-                headers=params["headers"],
-                data=params["data"],
-                cookies=params["cookies"],
-            )
-        except curl_cffi.CurlError as e:
-            raise EngineError.from_exception(cls, e) from e
+        response = await session.request(
+            params["method"],
+            params["url"],
+            headers=params["headers"],
+            data=params["data"],
+            cookies=params["cookies"],
+        )
 
         if not (200 <= response.status_code < 300):
-            raise EngineError.from_status(cls, response)
+            raise StatusCodeError(response)
 
         response.search_params = params  # type: ignore[attr-defined]
         response.url = Url(response.url)
