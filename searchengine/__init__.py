@@ -83,20 +83,41 @@ async def search(request: Request) -> Response:
         page = 1
 
     parsed_query = _QUERY_PARSER.parse_query(query, mode, page)
+
     engines = get_engines(parsed_query)
+    important_engines = {engine for engine in engines if engine.WEIGHT > 1}
 
     errors = []
     results = []
 
-    async with AsyncSession(timeout=5, impersonate="chrome") as session:
-        for coro in asyncio.as_completed(
-            _engine_search(engine, session, parsed_query) for engine in engines
-        ):
+    async with AsyncSession(impersonate="chrome") as session:
+        tasks = {
+            asyncio.create_task(_engine_search(engine, session, parsed_query))
+            for engine in engines
+        }
+
+        while tasks:
+            done, tasks = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+            for task in done:
+                try:
+                    results.append(task.result())
+                except EngineError as e:
+                    errors.append(e)
+            if (
+                {e for e, _ in results} | {e.engine for e in errors}
+            ) >= important_engines:
+                break
+
+        await asyncio.wait(tasks, timeout=0.5)
+
+        for task in tasks:
+            task.cancel()
             try:
-                results.append(await coro)
+                results.append(await task)
             except EngineError as e:
-                e.engine._log(str(e))
                 errors.append(e)
+            except asyncio.CancelledError:
+                pass
 
     rated_results = list(rate_results(results, parsed_query.lang))
     rated_results.sort(reverse=True)
