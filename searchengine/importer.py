@@ -17,6 +17,7 @@ def _import(
     if name == "searx.network":
         mod = ModuleType("searx.network")
         mod.get = lambda *_, **__: None  # type: ignore[attr-defined]
+        mod.raise_for_httperror = lambda _: None  # type: ignore[attr-defined]
         return mod
 
     return _builtin_import(name, _globals, _locals, fromlist, level)
