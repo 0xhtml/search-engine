@@ -44,7 +44,6 @@ class Engine(ABC):
         *,
         mode: SearchMode = SearchMode.WEB,
         weight: float = 1.0,
-        supported_languages: frozenset[str] = frozenset(),
         query_extensions: QueryExtensions = _DEFAULT_QUERY_EXTENSIONS,
         method: str = "GET",
     ) -> None:
@@ -52,7 +51,6 @@ class Engine(ABC):
         self._name = name
         self.mode = mode
         self.weight = weight
-        self.supported_languages = supported_languages
         self.query_extensions = query_extensions
         self._method = method
 
@@ -69,6 +67,10 @@ class Engine(ABC):
     @abstractmethod
     def _response(self, response: Response) -> list[Result]:
         pass
+
+    def supports_language(self, language: str) -> bool:
+        """Check if the engine supports a query language."""
+        return True
 
     async def search(
         self,
@@ -125,7 +127,6 @@ class _CstmEngine[Path, Element](Engine):
         *,
         mode: SearchMode = SearchMode.WEB,
         weight: float = 1.0,
-        supported_languages: frozenset[str] = frozenset(),
         query_extensions: QueryExtensions = _DEFAULT_QUERY_EXTENSIONS,
         method: str = "GET",
         url: str,
@@ -258,7 +259,6 @@ class _SearxEngine(Engine):
         *,
         mode: Optional[SearchMode] = None,
         weight: float = 1.0,
-        supported_languages: frozenset[str] = frozenset(),
         query_extensions: QueryExtensions = _DEFAULT_QUERY_EXTENSIONS,
         method: str = "GET",
     ) -> None:
@@ -288,7 +288,6 @@ class _SearxEngine(Engine):
             name,
             mode=mode,
             weight=weight,
-            supported_languages=supported_languages,
             query_extensions=query_extensions,
             method=method,
         )
@@ -350,11 +349,15 @@ class _SearxEngine(Engine):
 
         return results
 
+    def supports_language(self, language: str) -> bool:
+        if not self._engine.language_support:
+            return super().supports_language(language)
+        return self._engine.traits.is_locale_supported(language)
+
 
 _ALEXANDRIA = _JSONEngine(
     "alexandria",
     query_extensions=QueryExtensions.SITE,
-    supported_languages=frozenset({"en"}),
     url="https://api.alexandria.org",
     params={"a": "1", "c": "a"},
     result_path=jsonpath_ng.ext.parse("results[*]"),
@@ -383,9 +386,7 @@ _MOJEEK = _SearxEngine("mojeek", query_extensions=QueryExtensions.SITE)
 _MOJEEK_IMAGES = _SearxEngine("mojeek", mode=SearchMode.IMAGES)
 _REDDIT = _SearxEngine("reddit", weight=0.7, mode=SearchMode.WEB)
 _RIGHT_DAO = _SearxEngine(
-    "right dao",
-    supported_languages=frozenset({"en"}),
-    query_extensions=QueryExtensions.QUOTES | QueryExtensions.SITE,
+    "right dao", query_extensions=QueryExtensions.QUOTES | QueryExtensions.SITE
 )
 _SESE = _JSONEngine(
     "sese",
@@ -398,9 +399,7 @@ _SESE = _JSONEngine(
     text_path=jsonpath_ng.parse("'信息'.'描述'"),
 )
 _STRACT = _SearxEngine(
-    "stract",
-    supported_languages=frozenset({"en"}),
-    query_extensions=QueryExtensions.QUOTES | QueryExtensions.SITE,
+    "stract", query_extensions=QueryExtensions.QUOTES | QueryExtensions.SITE
 )
 _YEP = _SearxEngine("yep", query_extensions=QueryExtensions.SITE)
 _YEP_IMAGES = _SearxEngine(
@@ -415,6 +414,6 @@ def get_engines(query: ParsedQuery) -> set[Engine]:
         for _, engine in inspect.getmembers(sys.modules[__name__])
         if isinstance(engine, Engine)
         if engine.mode == query.mode
-        if not engine.supported_languages or query.lang in engine.supported_languages
+        if engine.supports_language(query.lang)
         if query.required_extensions() in engine.query_extensions
     }
