@@ -60,17 +60,17 @@ def index(request: Request) -> HTMLResponse:
 
 
 class _EngineError(Exception):
-    def __init__(self, engine: type[Engine], exc: BaseException) -> None:
+    def __init__(self, engine: Engine, exc: BaseException) -> None:
         self.engine = engine
         self.exc = exc
 
     def __str__(self) -> str:
-        return f"{self.engine.__name__}: {traceback.format_exception_only(self.exc)[0]}"
+        return f"{self.engine.name}: {traceback.format_exception_only(self.exc)[0]}"
 
 
 async def _engine_search(
-    engine: type[Engine], session: AsyncSession, query: ParsedQuery
-) -> tuple[type[Engine], list[Result]]:
+    engine: Engine, session: AsyncSession, query: ParsedQuery
+) -> tuple[Engine, list[Result]]:
     try:
         return engine, await engine.search(session, query)
     except BaseException as e:
@@ -99,7 +99,7 @@ async def search(request: Request) -> Response:
     parsed_query = _QUERY_PARSER.parse_query(query, mode, page)
 
     engines = get_engines(parsed_query)
-    important_engines = {engine for engine in engines if engine.WEIGHT > 1}
+    important_engines = {engine for engine in engines if engine.weight > 1}
 
     errors = []
     results = []

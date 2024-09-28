@@ -2,10 +2,12 @@
 
 from . import importer  # isort: skip
 
+import inspect
 import json
+import sys
+from abc import ABC, abstractmethod
 from html import unescape
-from types import ModuleType
-from typing import Any, ClassVar, Optional, Type, TypeAlias
+from typing import Any, Optional
 from urllib.parse import urlencode, urljoin
 
 import jsonpath_ng
@@ -22,17 +24,6 @@ from .results import AnswerResult, ImageResult, Result, WebResult
 from .url import Url
 
 
-def _load_searx_engine(name: str) -> searx.enginelib.Engine | ModuleType:
-    """Load a searx engine."""
-    for engine in searx.settings["engines"]:
-        if engine["name"] == name:
-            ret = searx.engines.load_engine(engine)
-            if ret is None:
-                raise ValueError(f"Failed to load searx engine {name}")
-            return ret
-    raise ValueError(f"Searx engine {name} not found")
-
-
 class StatusCodeError(Exception):
     """Exception that is raised if a request to an engine doesn't return 2xx."""
 
@@ -41,35 +32,46 @@ class StatusCodeError(Exception):
         super().__init__(f"{response.status_code} {response.reason}")
 
 
-class Engine:
+_DEFAULT_QUERY_EXTENSIONS = QueryExtensions(0)
+
+
+class Engine(ABC):
     """Base class for a search engine."""
 
-    WEIGHT: ClassVar = 1.0
-    SUPPORTED_LANGUAGES: ClassVar[Optional[set[str]]] = None
-    QUERY_EXTENSIONS: ClassVar[QueryExtensions] = QueryExtensions(0)
-    MODE: ClassVar[SearchMode] = SearchMode.WEB
+    def __init__(
+        self,
+        name: str,
+        *,
+        mode: SearchMode = SearchMode.WEB,
+        weight: float = 1.0,
+        supported_languages: frozenset[str] = frozenset(),
+        query_extensions: QueryExtensions = _DEFAULT_QUERY_EXTENSIONS,
+        method: str = "GET",
+    ) -> None:
+        """Initialize engine."""
+        self.name = name
+        self.mode = mode
+        self.weight = weight
+        self.supported_languages = supported_languages
+        self.query_extensions = query_extensions
+        self._method = method
 
-    _METHOD: ClassVar[str] = "GET"
-    _HEADERS: ClassVar[dict[str, str]] = {}
-
-    @classmethod
-    def _log(cls, msg: str, tag: Optional[str] = None) -> None:
+    def _log(self, msg: str, tag: Optional[str] = None) -> None:
         if tag is None:
-            print(f"[!] [{cls.__name__}] {msg}")
+            print(f"[!] [{self.name}] {msg}")
         else:
-            print(f"[!] [{cls.__name__}] [{tag}] {msg}")
+            print(f"[!] [{self.name}] [{tag}] {msg}")
 
-    @classmethod
-    def _request(cls, query: ParsedQuery, params: dict[str, Any]) -> dict[str, Any]:
-        raise NotImplementedError
+    @abstractmethod
+    def _request(self, query: ParsedQuery, params: dict[str, Any]) -> dict[str, Any]:
+        pass
 
-    @classmethod
-    def _response(cls, response: Response) -> list[Result]:
-        raise NotImplementedError
+    @abstractmethod
+    def _response(self, response: Response) -> list[Result]:
+        pass
 
-    @classmethod
     async def search(
-        cls,
+        self,
         session: AsyncSession,
         query: ParsedQuery,
     ) -> list[Result]:
@@ -80,12 +82,12 @@ class Engine:
             "time_range": None,
             "pageno": query.page,
             "safesearch": 2,
-            "method": cls._METHOD,
-            "headers": cls._HEADERS,
+            "method": self._method,
+            "headers": {},
             "data": None,
             "cookies": {},
         }
-        params = cls._request(query, params)
+        params = self._request(query, params)
 
         assert isinstance(params["method"], str)
         assert isinstance(params["url"], str)
@@ -106,68 +108,92 @@ class Engine:
 
         response.search_params = params  # type: ignore[attr-defined]
         response.url = Url(response.url)
-        return cls._response(response)
+        return self._response(response)
 
 
-Path: TypeAlias = etree.XPath | jsonpath_ng.JSONPath
-Element: TypeAlias = html.HtmlElement | dict
+_DEFAULT_PARAMS: dict[str, str] = {}
 
 
-class CstmEngine(Engine):
-    """Base class for a custom search engine."""
-
-    _URL: ClassVar[str]
-
-    _PARAMS: ClassVar[dict[str, str | bool]] = {}
-    _QUERY_KEY: ClassVar[str] = "q"
-
-    _RESULT_PATH: ClassVar[Path]
-    _TITLE_PATH: ClassVar[Path]
-    _URL_PATH: ClassVar[Path]
-    _TEXT_PATH: ClassVar[Optional[Path]] = None
-    _SRC_PATH: ClassVar[Optional[Path]] = None
+class _CstmEngine[Path, Element](Engine):
+    def __init__(
+        self,
+        name: str,
+        *,
+        mode: SearchMode = SearchMode.WEB,
+        weight: float = 1.0,
+        supported_languages: frozenset[str] = frozenset(),
+        query_extensions: QueryExtensions = _DEFAULT_QUERY_EXTENSIONS,
+        method: str = "GET",
+        url: str,
+        query_key: str = "q",
+        params: dict[str, str] = _DEFAULT_PARAMS,
+        result_path: Path,
+        title_path: Path,
+        url_path: Path,
+        text_path: Path,
+        src_path: Optional[Path] = None,
+    ) -> None:
+        super().__init__(
+            name,
+            mode=mode,
+            weight=weight,
+            supported_languages=supported_languages,
+            query_extensions=query_extensions,
+            method=method,
+        )
+        if self.mode == SearchMode.IMAGES and src_path is None:
+            raise ValueError("src_path is required for image search")
+        self._url = url
+        self._query_key = query_key
+        self._params = params
+        self._result_path = result_path
+        self._title_path = title_path
+        self._url_path = url_path
+        self._text_path = text_path
+        self._src_path = src_path
 
     @staticmethod
+    @abstractmethod
     def _parse_response(response: Response) -> Element:
-        raise NotImplementedError
+        pass
 
     @staticmethod
+    @abstractmethod
     def _iter(root: Element, path: Path) -> list[Element]:
-        raise NotImplementedError
+        pass
 
     @staticmethod
+    @abstractmethod
     def _get(root: Element, path: Optional[Path]) -> Optional[str]:
-        raise NotImplementedError
+        pass
 
-    @classmethod
-    def _request(cls, query: ParsedQuery, params: dict[str, Any]) -> dict[str, Any]:
-        data = {cls._QUERY_KEY: str(query), **cls._PARAMS}
+    def _request(self, query: ParsedQuery, params: dict[str, Any]) -> dict[str, Any]:
+        data = {self._query_key: str(query), **self._params}
 
         params["url"] = (
-            f"{cls._URL}?{urlencode(data)}" if cls._METHOD == "GET" else cls._URL
+            f"{self._url}?{urlencode(data)}" if self._method == "GET" else self._url
         )
-        params["data"] = json.dumps(data) if cls._METHOD == "POST" else None
+        params["data"] = json.dumps(data) if self._method == "POST" else None
 
         return params
 
-    @classmethod
-    def _response(cls, response: Response) -> list[Result]:
-        root = cls._parse_response(response)
+    def _response(self, response: Response) -> list[Result]:
+        root = self._parse_response(response)
 
         results: list[Result] = []
 
-        for result in cls._iter(root, cls._RESULT_PATH):
-            title = cls._get(result, cls._TITLE_PATH)
+        for result in self._iter(root, self._result_path):
+            title = self._get(result, self._title_path)
             assert title
 
-            _url = cls._get(result, cls._URL_PATH)
+            _url = self._get(result, self._url_path)
             assert _url
             url = Url(urljoin(str(response.url), _url))
 
-            text = cls._get(result, cls._TEXT_PATH)
+            text = self._get(result, self._text_path)
 
-            if cls.MODE == SearchMode.IMAGES:
-                src = cls._get(result, cls._SRC_PATH)
+            if self.mode == SearchMode.IMAGES:
+                src = self._get(result, self._src_path)
                 assert src
                 results.append(ImageResult(title, url, text or None, Url(src)))
                 continue
@@ -177,15 +203,7 @@ class CstmEngine(Engine):
         return results
 
 
-class XPathEngine(CstmEngine):
-    """Base class for a x-path search engine."""
-
-    _HEADERS = {
-        **CstmEngine._HEADERS,
-        "Accept": "text/html,application/xhtml+xml,application/xml;"
-        "q=0.9,image/avif,image/webp,*/*;q=0.8",
-    }
-
+class _XPathEngine(_CstmEngine[etree.XPath, html.HtmlElement]):
     @staticmethod
     def _parse_response(response: Response) -> html.HtmlElement:
         return html.document_fromstring(response.text)
@@ -212,9 +230,7 @@ class XPathEngine(CstmEngine):
         )
 
 
-class JSONEngine(CstmEngine):
-    """Base class for search engine using JSON."""
-
+class _JSONEngine(_CstmEngine[jsonpath_ng.JSONPath, dict]):
     @staticmethod
     def _parse_response(response: Response) -> dict:
         return response.json()
@@ -227,29 +243,51 @@ class JSONEngine(CstmEngine):
     def _get(root: dict, path: Optional[jsonpath_ng.JSONPath]) -> Optional[str]:
         if path is None or not (elems := path.find(root)):
             return None
+        assert isinstance(elems, list)
         return elems[0].value
 
 
-class SearxEngine(Engine):
-    """Class for a engine defined in searxng."""
+class _SearxEngine(Engine):
+    def __init__(
+        self,
+        name: str,
+        *,
+        mode: SearchMode = SearchMode.WEB,
+        weight: float = 1.0,
+        supported_languages: frozenset[str] = frozenset(),
+        query_extensions: QueryExtensions = _DEFAULT_QUERY_EXTENSIONS,
+        method: str = "GET",
+    ) -> None:
+        super().__init__(
+            name,
+            mode=mode,
+            weight=weight,
+            supported_languages=supported_languages,
+            query_extensions=query_extensions,
+            method=method,
+        )
+        for engine in searx.settings["engines"]:
+            if engine["name"] == self.name:
+                self._engine = searx.engines.load_engine(engine)
+                if self._engine is None:
+                    raise ValueError(f"Failed to load searx engine {self.name}")
+                break
+        else:
+            raise ValueError(f"Searx engine {self.name} not found")
 
-    _ENGINE: ClassVar[ModuleType]
+    def _request(self, query: ParsedQuery, params: dict[str, Any]) -> dict[str, Any]:
+        self._engine.search_type = self.mode.value  # type: ignore[attr-defined]
+        if self.name == "mojeek" and self.mode == SearchMode.WEB:
+            self._engine.search_type = ""  # type: ignore[attr-defined]
+        return self._engine.request(str(query), params)
 
-    @classmethod
-    def _request(cls, query: ParsedQuery, params: dict[str, Any]) -> dict[str, Any]:
-        cls._ENGINE.search_type = cls.MODE.value  # type: ignore[attr-defined]
-        if cls._ENGINE.name == "mojeek" and cls.MODE == SearchMode.WEB:
-            cls._ENGINE.search_type = ""  # type: ignore[attr-defined]
-        return cls._ENGINE.request(str(query), params)
-
-    @classmethod
-    def _response(cls, response: Response) -> list[Result]:
+    def _response(self, response: Response) -> list[Result]:
         if not response.text:
             return []
 
         results: list[Result] = []
 
-        for result in cls._ENGINE.response(response):
+        for result in self._engine.response(response):
             if "number_of_results" in result or "suggestion" in result:
                 continue
 
@@ -298,146 +336,80 @@ class SearxEngine(Engine):
         return results
 
 
-class Bing(SearxEngine):
-    """Search on Bing."""
-
-    WEIGHT = 1.3
-    QUERY_EXTENSIONS = QueryExtensions.SITE | QueryExtensions.PAGING
-    _ENGINE = _load_searx_engine("bing")
-
-
-class BingImages(Bing):
-    """Search images on Bing."""
-
-    MODE = SearchMode.IMAGES
-    _ENGINE = _load_searx_engine("bing images")
-
-
-class Mojeek(SearxEngine):
-    """Search on Mojeek."""
-
-    QUERY_EXTENSIONS = QueryExtensions.SITE | QueryExtensions.PAGING
-    _ENGINE = _load_searx_engine("mojeek")
-
-
-class MojeekImages(Mojeek):
-    """Search images on Mojeek."""
-
-    MODE = SearchMode.IMAGES
-
-
-class Stract(SearxEngine):
-    """Search on stract."""
-
-    # TODO: region selection doesn't really work
-    SUPPORTED_LANGUAGES = {"en"}
-    QUERY_EXTENSIONS = (
-        QueryExtensions.QUOTES | QueryExtensions.SITE | QueryExtensions.PAGING
-    )
-    _ENGINE = _load_searx_engine("stract")
-
-
-class RightDao(SearxEngine):
-    """Search on Right Dao."""
-
-    SUPPORTED_LANGUAGES = {"en"}
-    QUERY_EXTENSIONS = (
-        QueryExtensions.QUOTES | QueryExtensions.SITE | QueryExtensions.PAGING
-    )
-    _ENGINE = _load_searx_engine("right dao")
-
-
-class Alexandria(JSONEngine):
-    """Search on Alexandria an English only search engine."""
-
-    SUPPORTED_LANGUAGES = {"en"}
-    QUERY_EXTENSIONS = QueryExtensions.SITE
-
-    _URL = "https://api.alexandria.org"
-
-    _PARAMS = {"a": "1", "c": "a"}
-
-    _RESULT_PATH = jsonpath_ng.ext.parse("results[*]")
-    _TITLE_PATH = jsonpath_ng.parse("title")
-    _URL_PATH = jsonpath_ng.parse("url")
-    _TEXT_PATH = jsonpath_ng.parse("snippet")
-
-
-class Yep(SearxEngine):
-    """Search on Yep."""
-
-    QUERY_EXTENSIONS = QueryExtensions.SITE
-    _ENGINE = _load_searx_engine("yep")
+_ALEXANDRIA = _JSONEngine(
+    "alexandria",
+    query_extensions=QueryExtensions.SITE,
+    supported_languages=frozenset({"en"}),
+    url="https://api.alexandria.org",
+    params={"a": "1", "c": "a"},
+    result_path=jsonpath_ng.ext.parse("results[*]"),
+    title_path=jsonpath_ng.parse("title"),
+    url_path=jsonpath_ng.parse("url"),
+    text_path=jsonpath_ng.parse("snippet"),
+)
+_BING = _SearxEngine(
+    "bing",
+    weight=1.3,
+    # TODO: check if bing does support quotation
+    query_extensions=QueryExtensions.SITE | QueryExtensions.PAGING,
+)
+_BING_IMAGES = _SearxEngine(
+    "bing images",
+    mode=SearchMode.IMAGES,
+    weight=1.3,
+    query_extensions=QueryExtensions.SITE | QueryExtensions.PAGING,
+)
+_GOOGLE = _SearxEngine(
+    "google", weight=1.3, query_extensions=QueryExtensions.QUOTES | QueryExtensions.SITE
+)
+_GOOGLE_IMAGES = _SearxEngine(
+    "google images",
+    mode=SearchMode.IMAGES,
+    weight=1.3,
+    query_extensions=QueryExtensions.QUOTES | QueryExtensions.SITE,
+)
+_MOJEEK = _SearxEngine(
+    "mojeek", query_extensions=QueryExtensions.SITE | QueryExtensions.PAGING
+)
+_MOJEEK_IMAGES = _SearxEngine("mojeek", mode=SearchMode.IMAGES)
+_REDDIT = _SearxEngine("reddit", weight=0.7)
+_RIGHT_DAO = _SearxEngine(
+    "right dao",
+    supported_languages=frozenset({"en"}),
+    query_extensions=QueryExtensions.QUOTES
+    | QueryExtensions.SITE
+    | QueryExtensions.PAGING,
+)
+_SESE = _JSONEngine(
+    "sese",
+    query_extensions=QueryExtensions.SITE,
+    url="https://se-proxy.azurewebsites.net/api/search",
+    params={"slice": "0:12"},
+    result_path=jsonpath_ng.ext.parse("'结果'[?'信息'.'标题' != '']"),
+    url_path=jsonpath_ng.parse("'网址'"),
+    title_path=jsonpath_ng.parse("'信息'.'标题'"),
+    text_path=jsonpath_ng.parse("'信息'.'描述'"),
+)
+_STRACT = _SearxEngine(
+    "stract",
+    supported_languages=frozenset({"en"}),
+    query_extensions=QueryExtensions.QUOTES
+    | QueryExtensions.SITE
+    | QueryExtensions.PAGING,
+)
+_YEP = _SearxEngine("yep", query_extensions=QueryExtensions.SITE)
+_YEP_IMAGES = _SearxEngine(
+    "yep", mode=SearchMode.IMAGES, query_extensions=QueryExtensions.SITE
+)
 
 
-class YepImages(Yep):
-    """Search images on Yep."""
-
-    MODE = SearchMode.IMAGES
-
-
-class SeSe(JSONEngine):
-    """Search on SeSe."""
-
-    QUERY_EXTENSIONS = QueryExtensions.SITE
-
-    _URL = "https://se-proxy.azurewebsites.net/api/search"
-
-    _PARAMS = {"slice": "0:12"}
-
-    _RESULT_PATH = jsonpath_ng.ext.parse("'结果'[?'信息'.'标题' != '']")
-    _URL_PATH = jsonpath_ng.parse("'网址'")
-    _TITLE_PATH = jsonpath_ng.parse("'信息'.'标题'")
-    _TEXT_PATH = jsonpath_ng.parse("'信息'.'描述'")
-
-
-class Google(SearxEngine):
-    """Search on Google."""
-
-    WEIGHT = 1.3
-    QUERY_EXTENSIONS = QueryExtensions.QUOTES | QueryExtensions.SITE
-    _ENGINE = _load_searx_engine("google")
-
-
-class GoogleImages(Google):
-    """Search images on Google."""
-
-    MODE = SearchMode.IMAGES
-    _ENGINE = _load_searx_engine("google images")
-
-
-class Reddit(SearxEngine):
-    """Search on Reddit."""
-
-    WEIGHT = 0.7
-    QUERY_EXTENSIONS = QueryExtensions(0)
-    _ENGINE = _load_searx_engine("reddit")
-
-
-_ENGINES = {
-    Alexandria,
-    Bing,
-    BingImages,
-    Google,
-    GoogleImages,
-    Mojeek,
-    MojeekImages,
-    Reddit,
-    RightDao,
-    SeSe,
-    Stract,
-    Yep,
-    YepImages,
-}
-
-
-def get_engines(query: ParsedQuery) -> set[Type[Engine]]:
+def get_engines(query: ParsedQuery) -> set[Engine]:
     """Return list of enabled engines for the language."""
     return {
         engine
-        for engine in _ENGINES
-        if engine.MODE == query.mode
-        if engine.SUPPORTED_LANGUAGES is None
-        or query.lang in engine.SUPPORTED_LANGUAGES
-        if query.required_extensions() in engine.QUERY_EXTENSIONS
+        for _, engine in inspect.getmembers(sys.modules[__name__])
+        if isinstance(engine, Engine)
+        if engine.mode == query.mode
+        if not engine.supported_languages or query.lang in engine.supported_languages
+        if query.required_extensions() in engine.query_extensions
     }

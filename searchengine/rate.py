@@ -43,13 +43,13 @@ class _InvalidResultTypeError(Exception):
 class RatedResult:
     """Combined result with a rating and set of engines associated."""
 
-    def __init__(self, result: Result, position: int, engine: type[Engine]) -> None:
+    def __init__(self, result: Result, position: int, engine: Engine) -> None:
         """Initialize empty rated result."""
         self.result = result
-        self.rating = (MAX_RESULTS - position) * engine.WEIGHT
+        self.rating = (MAX_RESULTS - position) * engine.weight
         self.engines = {engine}
 
-    def update(self, result: Result, position: int, engine: type[Engine]) -> bool:
+    def update(self, result: Result, position: int, engine: Engine) -> bool:
         """Update rated result by combining the result from another engine."""
         if isinstance(result, WebResult) and not isinstance(self.result, WebResult):
             return False
@@ -60,7 +60,7 @@ class RatedResult:
         if _comparable_url(self.result.url) != _comparable_url(result.url):
             return False
 
-        max_weight = max(e.WEIGHT for e in self.engines)
+        max_weight = max(e.weight for e in self.engines)
 
         if result.text is not None and (
             self.result.text is None or len(self.result.text) < len(result.text)
@@ -69,9 +69,9 @@ class RatedResult:
 
         if (
             (self.result.url.scheme != "https" and result.url.scheme == "https")
-            or engine.WEIGHT > max_weight
+            or engine.weight > max_weight
             or (
-                engine.WEIGHT == max_weight
+                engine.weight == max_weight
                 and len(str(self.result.url)) > len(str(result.url))
             )
         ):
@@ -82,11 +82,11 @@ class RatedResult:
 
         if isinstance(self.result, ImageResult):
             assert isinstance(result, ImageResult)
-            if self.result.src is None or engine.WEIGHT > max_weight:
+            if self.result.src is None or engine.weight > max_weight:
                 self.result = self.result._replace(src=result.src)
 
         if engine not in self.engines:
-            self.rating += (MAX_RESULTS - position) * engine.WEIGHT
+            self.rating += (MAX_RESULTS - position) * engine.weight
             self.engines.add(engine)
 
         return True
@@ -137,7 +137,7 @@ class RatedResult:
 
 
 def rate_results(
-    results: list[tuple[type[Engine], list[Result]]],
+    results: list[tuple[Engine, list[Result]]],
     lang: str,
 ) -> set[RatedResult]:
     """Combine results from all engines and rate them."""
