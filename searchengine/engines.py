@@ -274,6 +274,8 @@ class _SearxEngine(Engine):
                 break
         else:
             raise ValueError(f"Searx engine {self.name} not found")
+        if self._engine.paging:
+            self.query_extensions |= QueryExtensions.PAGING
 
     def _request(self, query: ParsedQuery, params: dict[str, Any]) -> dict[str, Any]:
         self._engine.search_type = self.mode.value  # type: ignore[attr-defined]
@@ -351,13 +353,13 @@ _BING = _SearxEngine(
     "bing",
     weight=1.3,
     # TODO: check if bing does support quotation
-    query_extensions=QueryExtensions.SITE | QueryExtensions.PAGING,
+    query_extensions=QueryExtensions.SITE,
 )
 _BING_IMAGES = _SearxEngine(
     "bing images",
     mode=SearchMode.IMAGES,
     weight=1.3,
-    query_extensions=QueryExtensions.SITE | QueryExtensions.PAGING,
+    query_extensions=QueryExtensions.SITE,
 )
 _GOOGLE = _SearxEngine(
     "google", weight=1.3, query_extensions=QueryExtensions.QUOTES | QueryExtensions.SITE
@@ -368,17 +370,13 @@ _GOOGLE_IMAGES = _SearxEngine(
     weight=1.3,
     query_extensions=QueryExtensions.QUOTES | QueryExtensions.SITE,
 )
-_MOJEEK = _SearxEngine(
-    "mojeek", query_extensions=QueryExtensions.SITE | QueryExtensions.PAGING
-)
+_MOJEEK = _SearxEngine("mojeek", query_extensions=QueryExtensions.SITE)
 _MOJEEK_IMAGES = _SearxEngine("mojeek", mode=SearchMode.IMAGES)
 _REDDIT = _SearxEngine("reddit", weight=0.7)
 _RIGHT_DAO = _SearxEngine(
     "right dao",
     supported_languages=frozenset({"en"}),
-    query_extensions=QueryExtensions.QUOTES
-    | QueryExtensions.SITE
-    | QueryExtensions.PAGING,
+    query_extensions=QueryExtensions.QUOTES | QueryExtensions.SITE,
 )
 _SESE = _JSONEngine(
     "sese",
