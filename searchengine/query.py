@@ -19,7 +19,7 @@ class QueryExtensions(Flag):
 class SearchMode(Enum):
     """Search mode determining which type of results to return."""
 
-    WEB = "web"
+    WEB = "general"
     IMAGES = "images"
 
 

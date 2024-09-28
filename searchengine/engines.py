@@ -256,12 +256,34 @@ class _SearxEngine(Engine):
         self,
         name: str,
         *,
-        mode: SearchMode = SearchMode.WEB,
+        mode: Optional[SearchMode] = None,
         weight: float = 1.0,
         supported_languages: frozenset[str] = frozenset(),
         query_extensions: QueryExtensions = _DEFAULT_QUERY_EXTENSIONS,
         method: str = "GET",
     ) -> None:
+        for engine in searx.settings["engines"]:
+            if engine["name"] == name:
+                self._engine = searx.engines.load_engine(engine)
+                if self._engine is None:
+                    raise ValueError(f"Failed to load searx engine {name}")
+                break
+        else:
+            raise ValueError(f"Searx engine {name} not found")
+
+        if mode is None:
+            for _mode in SearchMode:
+                if _mode.value in self._engine.categories:
+                    mode = _mode
+                    break
+            else:
+                raise ValueError(f"Failed to detect mode for {name}")
+        else:
+            self._engine.search_type = mode.value
+
+        if self._engine.paging:
+            query_extensions |= QueryExtensions.PAGING
+
         super().__init__(
             name,
             mode=mode,
@@ -270,21 +292,8 @@ class _SearxEngine(Engine):
             query_extensions=query_extensions,
             method=method,
         )
-        for engine in searx.settings["engines"]:
-            if engine["name"] == self._name:
-                self._engine = searx.engines.load_engine(engine)
-                if self._engine is None:
-                    raise ValueError(f"Failed to load searx engine {self._name}")
-                break
-        else:
-            raise ValueError(f"Searx engine {self._name} not found")
-        if self._engine.paging:
-            self.query_extensions |= QueryExtensions.PAGING
 
     def _request(self, query: ParsedQuery, params: dict[str, Any]) -> dict[str, Any]:
-        self._engine.search_type = self.mode.value  # type: ignore[attr-defined]
-        if self._name == "mojeek" and self.mode == SearchMode.WEB:
-            self._engine.search_type = ""  # type: ignore[attr-defined]
         return self._engine.request(str(query), params)
 
     def _response(self, response: Response) -> list[Result]:
@@ -360,23 +369,19 @@ _BING = _SearxEngine(
     query_extensions=QueryExtensions.SITE,
 )
 _BING_IMAGES = _SearxEngine(
-    "bing images",
-    mode=SearchMode.IMAGES,
-    weight=1.3,
-    query_extensions=QueryExtensions.SITE,
+    "bing images", weight=1.3, query_extensions=QueryExtensions.SITE
 )
 _GOOGLE = _SearxEngine(
     "google", weight=1.3, query_extensions=QueryExtensions.QUOTES | QueryExtensions.SITE
 )
 _GOOGLE_IMAGES = _SearxEngine(
     "google images",
-    mode=SearchMode.IMAGES,
     weight=1.3,
     query_extensions=QueryExtensions.QUOTES | QueryExtensions.SITE,
 )
 _MOJEEK = _SearxEngine("mojeek", query_extensions=QueryExtensions.SITE)
 _MOJEEK_IMAGES = _SearxEngine("mojeek", mode=SearchMode.IMAGES)
-_REDDIT = _SearxEngine("reddit", weight=0.7)
+_REDDIT = _SearxEngine("reddit", weight=0.7, mode=SearchMode.WEB)
 _RIGHT_DAO = _SearxEngine(
     "right dao",
     supported_languages=frozenset({"en"}),
@@ -395,9 +400,7 @@ _SESE = _JSONEngine(
 _STRACT = _SearxEngine(
     "stract",
     supported_languages=frozenset({"en"}),
-    query_extensions=QueryExtensions.QUOTES
-    | QueryExtensions.SITE
-    | QueryExtensions.PAGING,
+    query_extensions=QueryExtensions.QUOTES | QueryExtensions.SITE,
 )
 _YEP = _SearxEngine("yep", query_extensions=QueryExtensions.SITE)
 _YEP_IMAGES = _SearxEngine(
