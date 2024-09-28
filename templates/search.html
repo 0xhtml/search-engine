@@ -49,7 +49,7 @@
         <p>{{ r.result.answer }}</p>
         <a href="{{ r.result.url }}">{{ r.result.url.host }}</a>
         {% endif %}
-        <small>{{ "{:.1f}".format(r.rating) }} - {{ r.engines | map(attribute="name") | sort | join(" ") }}</small>
+        <small>{{ "{:.1f}".format(r.rating) }} - {{ r.engines | map("string") | sort | join(" ") }}</small>
     </li>{% endfor %}
 </ul>
 {% if engine_errors %}

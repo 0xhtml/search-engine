@@ -49,7 +49,7 @@ class Engine(ABC):
         method: str = "GET",
     ) -> None:
         """Initialize engine."""
-        self.name = name
+        self._name = name
         self.mode = mode
         self.weight = weight
         self.supported_languages = supported_languages
@@ -58,9 +58,9 @@ class Engine(ABC):
 
     def _log(self, msg: str, tag: Optional[str] = None) -> None:
         if tag is None:
-            print(f"[!] [{self.name}] {msg}")
+            print(f"[!] [{self}] {msg}")
         else:
-            print(f"[!] [{self.name}] [{tag}] {msg}")
+            print(f"[!] [{self}] [{tag}] {msg}")
 
     @abstractmethod
     def _request(self, query: ParsedQuery, params: dict[str, Any]) -> dict[str, Any]:
@@ -109,6 +109,10 @@ class Engine(ABC):
         response.search_params = params  # type: ignore[attr-defined]
         response.url = Url(response.url)
         return self._response(response)
+
+    def __str__(self) -> str:
+        """Return name of engine in PascalCase."""
+        return self._name.title().replace(" ", "")
 
 
 _DEFAULT_PARAMS: dict[str, str] = {}
@@ -267,19 +271,19 @@ class _SearxEngine(Engine):
             method=method,
         )
         for engine in searx.settings["engines"]:
-            if engine["name"] == self.name:
+            if engine["name"] == self._name:
                 self._engine = searx.engines.load_engine(engine)
                 if self._engine is None:
-                    raise ValueError(f"Failed to load searx engine {self.name}")
+                    raise ValueError(f"Failed to load searx engine {self._name}")
                 break
         else:
-            raise ValueError(f"Searx engine {self.name} not found")
+            raise ValueError(f"Searx engine {self._name} not found")
         if self._engine.paging:
             self.query_extensions |= QueryExtensions.PAGING
 
     def _request(self, query: ParsedQuery, params: dict[str, Any]) -> dict[str, Any]:
         self._engine.search_type = self.mode.value  # type: ignore[attr-defined]
-        if self.name == "mojeek" and self.mode == SearchMode.WEB:
+        if self._name == "mojeek" and self.mode == SearchMode.WEB:
             self._engine.search_type = ""  # type: ignore[attr-defined]
         return self._engine.request(str(query), params)
 

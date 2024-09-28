@@ -65,7 +65,7 @@ class _EngineError(Exception):
         self.exc = exc
 
     def __str__(self) -> str:
-        return f"{self.engine.name}: {traceback.format_exception_only(self.exc)[0]}"
+        return f"{self.engine}: {traceback.format_exception_only(self.exc)[0]}"
 
 
 async def _engine_search(
