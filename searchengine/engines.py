@@ -94,6 +94,7 @@ class Engine:
         """Perform a search and return the results."""
         params = {
             "searxng_locale": query.lang,
+            "language": query.lang,
             "time_range": None,
             "pageno": query.page,
             "safesearch": 2,
