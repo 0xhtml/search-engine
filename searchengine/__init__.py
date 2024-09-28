@@ -160,7 +160,7 @@ async def img(request: Request) -> Response:
 
     async with AsyncSession(impersonate="chrome") as session:
         try:
-            resp = await session.get(url)
+            resp = await session.get(url, headers={"Accept": "image/*"})
         except curl_cffi.CurlError as e:
             return _error(request, str(e), 500)
 
