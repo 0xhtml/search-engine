@@ -20,7 +20,6 @@ from .rate import MAX_RESULTS, rate_results
 from .results import Result
 from .sha import gen_sha
 from .template_filter import TEMPLATE_FILTER_MAP
-from .url import Url
 
 _ = gettext.translation("msg", "locales", fallback=True).gettext
 
@@ -156,7 +155,7 @@ async def img(request: Request) -> Response:
         return _error(request, "Not Found", 404)
 
     sha = request.query_params.get("sha", None)
-    if sha is None or gen_sha(Url(url)) != sha:
+    if sha is None or gen_sha(url) != sha:
         return _error(request, "Unauthorized", 401)
 
     async with AsyncSession(impersonate="chrome") as session:

@@ -3,6 +3,7 @@
 from . import importer  # isort: skip
 
 import json
+from html import unescape
 from types import ModuleType
 from typing import Any, ClassVar, Optional, Type, TypeAlias
 from urllib.parse import urlencode, urljoin
@@ -278,7 +279,7 @@ class SearxEngine(Engine):
                         result["title"],
                         url,
                         result.get("content") or None,
-                        Url(src),
+                        Url(unescape(src)),
                     )
                 )
                 continue

@@ -39,7 +39,7 @@ def _proxy(ctx: dict, url: Url) -> str:
     return (
         str(ctx["request"].url_for("img"))
         + "?"
-        + urlencode({"url": url, "sha": gen_sha(url)})
+        + urlencode({"url": url, "sha": gen_sha(str(url))})
     )
 
 
