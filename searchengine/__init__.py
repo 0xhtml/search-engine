@@ -62,7 +62,10 @@ def index(request: Request) -> HTMLResponse:
 async def _engine_search(
     engine: type[Engine], session: AsyncSession, query: ParsedQuery
 ) -> tuple[type[Engine], list[Result]]:
-    return engine, await engine.search(session, query)
+    try:
+        return engine, await engine.search(session, query)
+    except asyncio.CancelledError as e:
+        raise EngineError.from_exception(engine, e) from e
 
 
 async def search(request: Request) -> Response:
@@ -116,8 +119,6 @@ async def search(request: Request) -> Response:
                 results.append(await task)
             except EngineError as e:
                 errors.append(e)
-            except asyncio.CancelledError:
-                pass
 
     rated_results = list(rate_results(results, parsed_query.lang))
     rated_results.sort(reverse=True)

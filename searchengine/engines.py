@@ -37,7 +37,9 @@ class EngineError(Exception):
     """Exception that is raised when a request fails."""
 
     @classmethod
-    def from_exception(cls, engine: type["Engine"], error: Exception) -> "EngineError":
+    def from_exception(
+        cls, engine: type["Engine"], error: BaseException
+    ) -> "EngineError":
         """Create an exception from another exception."""
         msg = str(type(error).__name__)
         if str(error):
