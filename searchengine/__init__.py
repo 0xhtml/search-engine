@@ -122,7 +122,8 @@ async def search(request: Request) -> Response:
             ) >= important_engines:
                 break
 
-        await asyncio.wait(tasks, timeout=0.5)
+        if tasks:
+            await asyncio.wait(tasks, timeout=0.5)
 
         for task in tasks:
             task.cancel()
