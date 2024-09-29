@@ -1,6 +1,6 @@
 """Module containing the Result types."""
 
-from typing import NamedTuple, Optional
+from typing import NamedTuple
 
 from .url import Url
 
@@ -10,7 +10,7 @@ class WebResult(NamedTuple):
 
     title: str
     url: Url
-    text: Optional[str]
+    text: str
 
 
 class ImageResult(NamedTuple):
@@ -18,7 +18,7 @@ class ImageResult(NamedTuple):
 
     title: str
     url: Url
-    text: Optional[str]
+    text: str
     src: Url
 
 

@@ -170,7 +170,7 @@ class _CstmEngine[Path, Element](Engine):
 
     @staticmethod
     @abstractmethod
-    def _get(root: Element, path: Optional[Path]) -> Optional[str]:
+    def _get(root: Element, path: Optional[Path]) -> str:
         pass
 
     def _request(self, query: ParsedQuery, params: dict[str, Any]) -> dict[str, Any]:
@@ -201,10 +201,10 @@ class _CstmEngine[Path, Element](Engine):
             if self.mode == SearchMode.IMAGES:
                 src = self._get(result, self._src_path)
                 assert src
-                results.append(ImageResult(title, url, text or None, Url(src)))
+                results.append(ImageResult(title, url, text, Url(src)))
                 continue
 
-            results.append(WebResult(title, url, text or None))
+            results.append(WebResult(title, url, text))
 
         return results
 
@@ -222,9 +222,9 @@ class _XPathEngine(_CstmEngine[etree.XPath, html.HtmlElement]):
         return elems
 
     @staticmethod
-    def _get(root: html.HtmlElement, path: Optional[etree.XPath]) -> Optional[str]:
+    def _get(root: html.HtmlElement, path: Optional[etree.XPath]) -> str:
         if path is None or not (elems := path(root)):
-            return None
+            return ""
         assert isinstance(elems, list)
         if isinstance(elems[0], str):
             return elems[0]
@@ -246,9 +246,9 @@ class _JSONEngine(_CstmEngine[jsonpath_ng.JSONPath, dict]):
         return path.find(root)
 
     @staticmethod
-    def _get(root: dict, path: Optional[jsonpath_ng.JSONPath]) -> Optional[str]:
+    def _get(root: dict, path: Optional[jsonpath_ng.JSONPath]) -> str:
         if path is None or not (elems := path.find(root)):
-            return None
+            return ""
         assert isinstance(elems, list)
         return elems[0].value
 
@@ -321,6 +321,8 @@ class _SearxEngine(Engine):
 
             assert "title" in result
             assert isinstance(result["title"], str)
+            if not result["title"]:
+                continue
 
             if "img_src" in result:
                 src = result.get("thumbnail_src", result["img_src"])
@@ -331,20 +333,19 @@ class _SearxEngine(Engine):
                     ImageResult(
                         result["title"],
                         url,
-                        result.get("content") or None,
+                        result.get("content", ""),
                         Url(unescape(src)),
                     )
                 )
                 continue
 
-            assert result["title"]
             assert "content" in result
             assert isinstance(result["content"], str)
             results.append(
                 WebResult(
                     result["title"],
                     url,
-                    result["content"] or None,
+                    result["content"],
                 )
             )
 
