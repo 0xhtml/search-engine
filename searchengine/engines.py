@@ -309,6 +309,7 @@ class _SearxEngine(Engine):
             assert "url" in result
             assert isinstance(result["url"], str)
             if not result["url"]:
+                self._log(f"result w/o URL {result}")
                 continue
 
             url = Url(result["url"])
@@ -322,6 +323,7 @@ class _SearxEngine(Engine):
             assert "title" in result
             assert isinstance(result["title"], str)
             if not result["title"]:
+                self._log(f"result w/o title {result}")
                 continue
 
             if "img_src" in result:
@@ -385,7 +387,6 @@ _GOOGLE_IMAGES = _SearxEngine(
     query_extensions=QueryExtensions.QUOTES | QueryExtensions.SITE,
 )
 _MOJEEK = _SearxEngine("mojeek", query_extensions=QueryExtensions.SITE)
-_MOJEEK_IMAGES = _SearxEngine("mojeek", mode=SearchMode.IMAGES)
 _REDDIT = _SearxEngine("reddit", weight=0.7, mode=SearchMode.WEB)
 _RIGHT_DAO = _SearxEngine(
     "right dao", query_extensions=QueryExtensions.QUOTES | QueryExtensions.SITE
