@@ -138,16 +138,9 @@ class _CstmEngine[Path, Element](Engine):
         text_path: Path,
         src_path: Optional[Path] = None,
     ) -> None:
-        super().__init__(
-            name,
-            mode=mode,
-            weight=weight,
-            supported_languages=supported_languages,
-            query_extensions=query_extensions,
-            method=method,
-        )
-        if self.mode == SearchMode.IMAGES and src_path is None:
+        if mode == SearchMode.IMAGES and src_path is None:
             raise ValueError("src_path is required for image search")
+
         self._url = url
         self._query_key = query_key
         self._params = params
@@ -156,6 +149,14 @@ class _CstmEngine[Path, Element](Engine):
         self._url_path = url_path
         self._text_path = text_path
         self._src_path = src_path
+
+        super().__init__(
+            name,
+            mode=mode,
+            weight=weight,
+            query_extensions=query_extensions,
+            method=method,
+        )
 
     @staticmethod
     @abstractmethod
