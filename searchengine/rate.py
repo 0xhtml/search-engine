@@ -33,6 +33,7 @@ def _comparable_url(url: Url) -> Url:
         path=url.path.replace("%E2%80%93", "-")
         if url.host.endswith(".wikipedia.org")
         else url.path,
+        fragment="",
     )
 
 
