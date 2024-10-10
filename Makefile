@@ -9,7 +9,7 @@ run: build
 	env/bin/uvicorn searchengine:app --reload
 
 test: env
-	env/bin/python -m pytest
+	env/bin/python -m pytest tests
 
 %.mo: %.po
 	msgfmt -o $@ $<
