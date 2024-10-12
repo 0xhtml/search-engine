@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 
 {% block content %}
+<script src="{{ url_for("static", path="htmx.min.js") }}"></script>
 <form action="{{ url_for("search") }}">
     <div class="search">
         <input type="search" name="q" placeholder="{{ _("Search the web...") }}" value="{{ query }}" required>
@@ -9,57 +10,42 @@
     </div>
     <div class="options">
         {% for m in SearchMode %}
-        <input type="radio" name="mode" value="{{ m.value }}" id="{{ m.value }}" {% if m == parsed_query.mode %}checked{% else %}onchange="document.getElementsByTagName('form')[0].submit()"{% endif %}>
+        <input type="radio" name="mode" value="{{ m.value }}" id="{{ m.value }}" {% if m == mode %}checked{% else %}onchange="document.getElementsByTagName('form')[0].submit()"{% endif %}>
         <label for="{{ m.value }}">{{ _(m.value) }}</label>
         {% endfor %}
-        {% if parsed_query.page < 5 %}
+        {% if page < 5 %}
         {% for i in range(1, 6) %}
-        <input type="submit" name="page" value="{{ i }}"{% if parsed_query.page == i %} disabled{% endif %}>
+        <input type="submit" name="page" value="{{ i }}"{% if page == i %} disabled{% endif %}>
         {% endfor %}
         {% else %}
         <input type="submit" name="page" value="1">
         <span>&hellip;</span>
-        {% if parsed_query.page < 9 %}
-        <input type="submit" name="page" value="{{ parsed_query.page - 1 }}">
-        <input type="submit" name="page" value="{{ parsed_query.page }}" disabled>
-        <input type="submit" name="page" value="{{ parsed_query.page + 1 }}">
+        {% if page < 9 %}
+        <input type="submit" name="page" value="{{ page - 1 }}">
+        <input type="submit" name="page" value="{{ page }}" disabled>
+        <input type="submit" name="page" value="{{ page + 1 }}">
         {% else %}
-        <input type="submit" name="page" value="{{ parsed_query.page - 2 }}">
-        <input type="submit" name="page" value="{{ parsed_query.page - 1 }}">
-        <input type="submit" name="page" value="{{ parsed_query.page }}" disabled>
+        <input type="submit" name="page" value="{{ page - 2 }}">
+        <input type="submit" name="page" value="{{ page - 1 }}">
+        <input type="submit" name="page" value="{{ page }}" disabled>
         {% endif %}
         {% endif %}
     </div>
 </form>
-<ul class="results">
-    {% for r in results %}<li class="{{ r.result_type() }}">
-        {% if r.result_type() == "web" %}
-        <a href="{{ r.result.url }}">
-            <small>{{ r.result.url | pretty_url }}</small>
-            <h3>{{ r.result.title | highlight(parsed_query) }}</h3>
+<ul class="results" hx-get="{{ url_for("search") }}?{{ request.query_params }}" hx-trigger="load" hx-swap="outerHTML">
+    {% for _ in range(10) %}
+    <li class="web">
+        <a>
+            <small><span class="loading" style="width: {{ loop.cycle(50, 40, 50) }}%"></span></small>
+            <h3><span class="loading" style="width: {{ loop.cycle(98, 60, 90, 65) }}%"></span></h3>
         </a>
-        {% if r.result.text %}
-        <p>{{ r.result.text | highlight(parsed_query) }}</p>
-        {% endif %}
-        {% elif r.result_type() == "image" %}
-        <a href="{{ r.result.url }}">
-            <img src="{{ r.result.src | proxy }}" title="{{ r.result.title }}"{% if r.result.text %} alt="{{ r.result.text }}"{% endif %}>
-        </a>
-        {% elif r.result_type() == "answer" %}
-        <p>{{ r.result.answer }}</p>
-        <a href="{{ r.result.url }}">{{ r.result.url.host }}</a>
-        {% endif %}
-        <small>{{ "{:.1f}".format(r.rating) }} - {{ r.engines | map("string") | sort | join(" ") }}</small>
-    </li>{% endfor %}
+        <p>
+            <span class="loading" style="width: {{ loop.cycle(98, 99, 95) }}%"></span>
+            <span class="loading" style="width: {{ loop.cycle(99, 95, 95) }}%"></span>
+            <span class="loading" style="width: {{ loop.cycle(88, 85, 89) }}%"></span>
+        </p>
+        <small><span class="loading" style="width: {{ loop.cycle(20, 15) }}%"></span></small>
+    </li>
+    {% endfor %}
 </ul>
-{% if engine_errors %}
-<div class="error">
-    <h4>{{ _("Error") }}</h4>
-    <ul>
-        {% for error in engine_errors %}
-        <li>{{ error }}</li>
-        {% endfor %}
-    </ul>
-</div>
-{% endif %}
 {% endblock %}

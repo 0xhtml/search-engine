@@ -232,6 +232,15 @@ img {
     }
 }
 
+.loading {
+    color: transparent !important;
+    border-radius: .25em;
+    display: block;
+    height: 1.75ex;
+    margin: .275ex 0;
+    background: var(--muted);
+}
+
 @media (prefers-color-scheme: dark) {
     @include colors(#1a1a1a, get-function(lighten));
 

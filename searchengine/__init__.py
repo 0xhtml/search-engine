@@ -96,6 +96,13 @@ async def search(request: Request) -> Response:
     except (ValueError, KeyError):
         page = 1
 
+    if "HX-Request" not in request.headers:
+        return _TEMPLATES.TemplateResponse(
+            request,
+            "search.html",
+            {"title": query, "query": query, "mode": mode, "page": page},
+        )
+
     parsed_query = _QUERY_PARSER.parse_query(query, mode, page)
 
     engines = get_engines(parsed_query)
@@ -138,10 +145,8 @@ async def search(request: Request) -> Response:
 
     return _TEMPLATES.TemplateResponse(
         request,
-        "search.html",
+        "results.html",
         {
-            "title": query,
-            "query": query,
             "parsed_query": parsed_query,
             "results": rated_results,
             "engine_errors": errors,
