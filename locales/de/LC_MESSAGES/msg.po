@@ -40,9 +40,13 @@ msgid "Search the web..."
 msgstr "Dursuche das Web..."
 
 #: searchengine/templates/search.html:10
-msgid "general"
+msgid "Web"
 msgstr "Web"
 
 #: searchengine/templates/search.html:10
-msgid "images"
+msgid "Images"
 msgstr "Bilder"
+
+#: searchengine/templates/search.html:10
+msgid "Scholar"
+msgstr "Scholar"

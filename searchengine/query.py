@@ -19,8 +19,19 @@ class QueryExtensions(Flag):
 class SearchMode(Enum):
     """Search mode determining which type of results to return."""
 
-    WEB = "general"
+    WEB = "web"
     IMAGES = "images"
+    SCHOLAR = "scholar"
+
+    def searx_category(self) -> str:
+        """Convert search mode to searx category."""
+        if self == SearchMode.WEB:
+            return "general"
+        if self == SearchMode.IMAGES:
+            return "images"
+        if self == SearchMode.SCHOLAR:
+            return "science"
+        raise ValueError
 
 
 class ParsedQuery(NamedTuple):

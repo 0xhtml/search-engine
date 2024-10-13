@@ -274,7 +274,7 @@ class _SearxEngine(Engine):
 
         if mode is None:
             for _mode in SearchMode:
-                if _mode.value in self._engine.categories:
+                if _mode.searx_category() in self._engine.categories:
                     mode = _mode
                     break
             else:
@@ -386,6 +386,7 @@ _GOOGLE_IMAGES = _SearxEngine(
     weight=1.3,
     query_extensions=QueryExtensions.QUOTES | QueryExtensions.SITE,
 )
+_GOOGLE_SCHOLAR = _SearxEngine("google scholar", weight=1.3)
 _MOJEEK = _SearxEngine("mojeek", query_extensions=QueryExtensions.SITE)
 _REDDIT = _SearxEngine("reddit", weight=0.7, mode=SearchMode.WEB)
 _RIGHT_DAO = _SearxEngine(

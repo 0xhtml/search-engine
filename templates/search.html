@@ -11,7 +11,7 @@
     <div class="options">
         {% for m in SearchMode %}
         <input type="radio" name="mode" value="{{ m.value }}" id="{{ m.value }}" {% if m == mode %}checked{% else %}onchange="document.getElementsByTagName('form')[0].submit()"{% endif %}>
-        <label for="{{ m.value }}">{{ _(m.value) }}</label>
+        <label for="{{ m.value }}">{{ _(m.value.capitalize()) }}</label>
         {% endfor %}
         {% if page < 5 %}
         {% for i in range(1, 6) %}
@@ -34,7 +34,14 @@
 </form>
 <ul class="results" hx-get="{{ url_for("search") }}?{{ request.query_params }}" hx-trigger="load" hx-swap="outerHTML">
     {% for _ in range(10) %}
-    {% if mode == SearchMode.WEB %}
+    {% if mode == SearchMode.IMAGES %}
+    <li class="image">
+        <a>
+            <span class="loading" style="width: {{ loop.cycle(10, 12, 11) }}em; height: {{ loop.cycle(10, 8, 9, 11, 12) }}em"></span>
+        </a>
+        <small><span class="loading" style="width: {{ loop.cycle(8, 6, 6) }}em"></span></small>
+    </li>
+    {% else %}
     <li class="web">
         <a>
             <small><span class="loading" style="width: {{ loop.cycle(20, 16, 20) }}em"></span></small>
@@ -47,13 +54,6 @@
             {% endif %}
             <span class="loading" style="width: {{ loop.cycle(88, 85, 89) }}%"></span>
         </p>
-        <small><span class="loading" style="width: {{ loop.cycle(8, 6, 6) }}em"></span></small>
-    </li>
-    {% elif mode == SearchMode.IMAGES %}
-    <li class="image">
-        <a>
-            <span class="loading" style="width: {{ loop.cycle(10, 12, 11) }}em; height: {{ loop.cycle(10, 8, 9, 11, 12) }}em"></span>
-        </a>
         <small><span class="loading" style="width: {{ loop.cycle(8, 6, 6) }}em"></span></small>
     </li>
     {% endif %}
