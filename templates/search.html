@@ -34,18 +34,29 @@
 </form>
 <ul class="results" hx-get="{{ url_for("search") }}?{{ request.query_params }}" hx-trigger="load" hx-swap="outerHTML">
     {% for _ in range(10) %}
+    {% if mode == SearchMode.WEB %}
     <li class="web">
         <a>
-            <small><span class="loading" style="width: {{ loop.cycle(50, 40, 50) }}%"></span></small>
-            <h3><span class="loading" style="width: {{ loop.cycle(98, 60, 90, 65) }}%"></span></h3>
+            <small><span class="loading" style="width: {{ loop.cycle(20, 16, 20) }}em"></span></small>
+            <h3><span class="loading" style="width: {{ loop.cycle(37, 22, 34, 24) }}em"></span></h3>
         </a>
         <p>
             <span class="loading" style="width: {{ loop.cycle(98, 99, 95) }}%"></span>
+            {% if loop.cycle(true, false, true) %}
             <span class="loading" style="width: {{ loop.cycle(99, 95, 95) }}%"></span>
+            {% endif %}
             <span class="loading" style="width: {{ loop.cycle(88, 85, 89) }}%"></span>
         </p>
-        <small><span class="loading" style="width: {{ loop.cycle(20, 15) }}%"></span></small>
+        <small><span class="loading" style="width: {{ loop.cycle(8, 6, 6) }}em"></span></small>
     </li>
+    {% elif mode == SearchMode.IMAGES %}
+    <li class="image">
+        <a>
+            <span class="loading" style="width: {{ loop.cycle(10, 12, 11) }}em; height: {{ loop.cycle(10, 8, 9, 11, 12) }}em"></span>
+        </a>
+        <small><span class="loading" style="width: {{ loop.cycle(8, 6, 6) }}em"></span></small>
+    </li>
+    {% endif %}
     {% endfor %}
 </ul>
 {% endblock %}
