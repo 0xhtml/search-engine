@@ -111,7 +111,7 @@ class RatedResult:
         host = self.result.url.host.removeprefix("www.")
         if host == "docs.python.org":
             self.rating *= 1.5
-        elif host in {"stackoverflow.com", "reddit.com"}:
+        elif host in {"stackoverflow.com", "reddit.com", "github.com"}:
             self.rating *= 1.3
         elif host.endswith(".wikipedia.org"):
             self.rating *= 1.1
