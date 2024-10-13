@@ -125,7 +125,7 @@ async def search(request: Request) -> Response:
                 except _EngineError as e:
                     errors.append(e)
             if (
-                {e for e, _ in results} | {e.engine for e in errors}
+                {e for e, __ in results} | {e.engine for e in errors}
             ) >= important_engines:
                 break
 
