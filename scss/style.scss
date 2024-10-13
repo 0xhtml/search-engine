@@ -236,9 +236,10 @@ img {
     color: transparent !important;
     border-radius: .25em;
     display: block;
-    height: 1.75ex;
-    margin: .275ex 0;
+    height: calc(round(1lh, 1px) * .85);
+    padding: calc(round(1lh, 1px) * .075) 0;
     background: var(--muted);
+    background-clip: content-box;
     max-width: 100%;
 }
 
