@@ -91,12 +91,6 @@ class Engine(ABC):
         }
         params = self._request(query, params)
 
-        assert isinstance(params["method"], str)
-        assert isinstance(params["url"], str)
-        assert isinstance(params["headers"], dict)
-        assert isinstance(params["cookies"], dict)
-        assert isinstance(params["data"], str) or params["data"] is None
-
         response = await session.request(
             params["method"],
             params["url"],
