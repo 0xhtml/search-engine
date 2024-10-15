@@ -1,26 +1,15 @@
 """Module for rating results."""
 
 import regex
-from curl_cffi.requests import get
 
 from .engines import Engine
 from .lang import is_lang
 from .results import AnswerResult, ImageResult, Result, WebResult
 from .url import Url
 
-
-def _load_domains(url: str) -> set[str]:
-    return {
-        x.removeprefix("www.")
-        for x in get(url).text.splitlines()
-        if not x.startswith("#")
-    }
-
-
 MAX_RESULTS = 12
-_SPAM_DOMAINS = _load_domains(
-    "https://github.com/quenhus/uBlock-Origin-dev-filter/raw/main/dist/other_format/domains/global.txt",
-) | _load_domains("https://github.com/rimu/no-qanon/raw/master/domains.txt")
+with open("domains.txt") as file:
+    _SPAM_DOMAINS = {x.removeprefix("www.") for x in file if not x.startswith("#")}
 
 
 def _comparable_url(url: Url) -> Url:
