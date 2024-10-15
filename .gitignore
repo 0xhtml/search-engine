@@ -1,6 +1,7 @@
 __pycache__/
+domains.txt
 env/
 lid.176.bin
 locales/*/LC_MESSAGES/*.mo
 static/htmx.min.js
-static/style.css*
+static/style.css
