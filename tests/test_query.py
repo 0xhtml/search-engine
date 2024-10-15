@@ -7,7 +7,7 @@ from searchengine.query import QueryParser, SearchMode
 
 
 @pytest.mark.parametrize(
-    "query,words,lang,site",
+    ("query", "words", "lang", "site"),
     [
         ("This is a test!", ["This", "is", "a", "test!"], None, None),
         ('Th"s "is a" test!', ['Th"s', "is a", "test!"], None, None),
