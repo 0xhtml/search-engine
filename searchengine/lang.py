@@ -1,23 +1,13 @@
 """Module containing utils to work with human language."""
 
-import fasttext
 import regex
-
-_MODEL = None
-
-
-def _model() -> fasttext.FastText:
-    global _MODEL
-
-    if not _MODEL:
-        _MODEL = fasttext.load_model("lid.176.bin")
-
-    return _MODEL
+import searx.utils
 
 
 def detect_lang(text: str, languages: list[str]) -> str:
     """Detect language of given text, returning ISO language code."""
-    labels, _ = _model().predict(" ".join(text.splitlines()), 176)
+    model = searx.utils._get_fasttext_model()  # noqa: SLF001
+    labels, _ = model.predict(" ".join(text.splitlines()), 176)
 
     langs = [
         lang
@@ -30,7 +20,8 @@ def detect_lang(text: str, languages: list[str]) -> str:
 
 def is_lang(text: str, expected_lang: str) -> float:
     """Check to which confidence score the given text matches the expected language."""
-    labels, scores = _model().predict(" ".join(text.splitlines()), 176)
+    model = searx.utils._get_fasttext_model()  # noqa: SLF001
+    labels, scores = model.predict(" ".join(text.splitlines()), 176)
 
     if f"__label__{expected_lang}" in labels:
         return scores[labels.index(f"__label__{expected_lang}")]

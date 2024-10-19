@@ -3,7 +3,7 @@
 SEARXNG:=searxng/dist/searxng-$(shell cd searxng && python -c 'from searx import version; print(version.VERSION_TAG)')-py3-none-any.whl
 LOCALES:=$(patsubst %.po, %.mo, $(wildcard locales/*/LC_MESSAGES/*.po))
 
-build: $(LOCALES) static/style.css static/htmx.min.js env lid.176.bin domains.txt
+build: $(LOCALES) static/style.css static/htmx.min.js env domains.txt
 
 run: build
 	env/bin/uvicorn searchengine:app --reload
@@ -26,9 +26,6 @@ env: requirements.txt $(SEARXNG)
 
 $(SEARXNG):
 	cd searxng && ./manage py.build
-
-lid.176.bin:
-	wget https://dl.fbaipublicfiles.com/fasttext/supervised-models/lid.176.bin
 
 domains.txt:
 	(wget -O- https://raw.githubusercontent.com/rimu/no-qanon/master/domains.txt && wget -O- https://raw.githubusercontent.com/quenhus/uBlock-Origin-dev-filter/main/dist/other_format/domains/global.txt) > domains.txt || rm domains.txt
