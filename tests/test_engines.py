@@ -6,7 +6,7 @@ from typing import Optional
 import pytest
 import searchengine.engines
 from searchengine.engines import Engine
-from searchengine.query import ParsedQuery, SearchMode
+from searchengine.query import ParsedQuery
 
 
 class _DummyResponse:
@@ -47,5 +47,5 @@ class _DummySession:
 async def test_search(engine: Engine) -> None:
     """Test if the parameters to request get populated."""
     engine._response = lambda _: None  # noqa: SLF001
-    query = ParsedQuery(["query"], SearchMode.WEB, 1, "en", None)
-    await engine.search(_DummySession(), query)
+    query = ParsedQuery(["query"], "en", None)
+    await engine.search(_DummySession(), query, 1)

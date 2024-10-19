@@ -1,7 +1,7 @@
 """Tests for the custom template filters."""
 
 import pytest
-from searchengine.query import ParsedQuery, SearchMode
+from searchengine.query import ParsedQuery
 from searchengine.template_filter import _highlight
 
 
@@ -27,5 +27,5 @@ from searchengine.template_filter import _highlight
 )
 def test_highlight(words: list[str], before: str, after: str) -> None:
     """Test highlighting of query parts."""
-    query = ParsedQuery(words, SearchMode.WEB, 1, "", None)
+    query = ParsedQuery(words, "", None)
     assert _highlight(before, query) == after

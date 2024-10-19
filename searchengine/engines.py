@@ -6,6 +6,7 @@ import inspect
 import json
 import sys
 from abc import ABC, abstractmethod
+from enum import Flag, auto
 from html import unescape
 from typing import Any, Optional
 from urllib.parse import urlencode, urljoin
@@ -19,9 +20,30 @@ import searx.engines
 from curl_cffi.requests import AsyncSession, Response
 from lxml import etree, html
 
-from .query import ParsedQuery, QueryExtensions, SearchMode
+from .query import ParsedQuery, SearchMode
 from .results import AnswerResult, ImageResult, Result, WebResult
 from .url import Url
+
+
+class _Features(Flag):
+    PAGING = auto()
+    QUOTES = auto()
+    SITE = auto()
+
+    @classmethod
+    def required(cls, query: ParsedQuery, page: int) -> "_Features":
+        extensions = cls(0)
+
+        if page != 1:
+            extensions |= cls.PAGING
+
+        if any(" " in word for word in query.words):
+            extensions |= cls.QUOTES
+
+        if query.site is not None:
+            extensions |= cls.SITE
+
+        return extensions
 
 
 class StatusCodeError(Exception):
@@ -32,7 +54,7 @@ class StatusCodeError(Exception):
         super().__init__(f"{response.status_code} {response.reason}")
 
 
-_DEFAULT_QUERY_EXTENSIONS = QueryExtensions(0)
+_DEFAULT_FEATURES = _Features(0)
 
 
 class Engine(ABC):
@@ -44,14 +66,14 @@ class Engine(ABC):
         *,
         mode: SearchMode = SearchMode.WEB,
         weight: float = 1.0,
-        query_extensions: QueryExtensions = _DEFAULT_QUERY_EXTENSIONS,
+        features: _Features = _DEFAULT_FEATURES,
         method: str = "GET",
     ) -> None:
         """Initialize engine."""
         self._name = name
         self.mode = mode
         self.weight = weight
-        self.query_extensions = query_extensions
+        self.features = features
         self._method = method
 
     def _log(self, msg: str, tag: Optional[str] = None) -> None:
@@ -76,13 +98,14 @@ class Engine(ABC):
         self,
         session: AsyncSession,
         query: ParsedQuery,
+        page: int,
     ) -> list[Result]:
         """Perform a search and return the results."""
         params = {
             "searxng_locale": query.lang,
             "language": query.lang,
             "time_range": None,
-            "pageno": query.page,
+            "pageno": page,
             "safesearch": 2,
             "method": self._method,
             "headers": {},
@@ -121,7 +144,7 @@ class _CstmEngine[Path, Element](Engine):
         *,
         mode: SearchMode = SearchMode.WEB,
         weight: float = 1.0,
-        query_extensions: QueryExtensions = _DEFAULT_QUERY_EXTENSIONS,
+        features: _Features = _DEFAULT_FEATURES,
         method: str = "GET",
         url: str,
         query_key: str = "q",
@@ -148,7 +171,7 @@ class _CstmEngine[Path, Element](Engine):
             name,
             mode=mode,
             weight=weight,
-            query_extensions=query_extensions,
+            features=features,
             method=method,
         )
 
@@ -254,7 +277,7 @@ class _SearxEngine(Engine):
         *,
         mode: Optional[SearchMode] = None,
         weight: float = 1.0,
-        query_extensions: QueryExtensions = _DEFAULT_QUERY_EXTENSIONS,
+        features: _Features = _DEFAULT_FEATURES,
         method: str = "GET",
     ) -> None:
         for engine in searx.settings["engines"]:
@@ -277,13 +300,13 @@ class _SearxEngine(Engine):
             self._engine.search_type = mode.value
 
         if self._engine.paging:
-            query_extensions |= QueryExtensions.PAGING
+            features |= _Features.PAGING
 
         super().__init__(
             name,
             mode=mode,
             weight=weight,
-            query_extensions=query_extensions,
+            features=features,
             method=method,
         )
 
@@ -355,7 +378,7 @@ class _SearxEngine(Engine):
 
 _ALEXANDRIA = _JSONEngine(
     "alexandria",
-    query_extensions=QueryExtensions.SITE,
+    features=_Features.SITE,
     url="https://api.alexandria.org",
     params={"a": "1", "c": "a"},
     result_path=jsonpath_ng.ext.parse("results[*]"),
@@ -363,32 +386,20 @@ _ALEXANDRIA = _JSONEngine(
     url_path=jsonpath_ng.parse("url"),
     text_path=jsonpath_ng.parse("snippet"),
 )
-_BING = _SearxEngine(
-    "bing",
-    weight=1.3,
-    # TODO: check if bing does support quotation
-    query_extensions=QueryExtensions.SITE,
-)
-_BING_IMAGES = _SearxEngine(
-    "bing images", weight=1.3, query_extensions=QueryExtensions.SITE
-)
-_GOOGLE = _SearxEngine(
-    "google", weight=1.3, query_extensions=QueryExtensions.QUOTES | QueryExtensions.SITE
-)
+# TODO: check if bing does support quotation
+_BING = _SearxEngine("bing", weight=1.3, features=_Features.SITE)
+_BING_IMAGES = _SearxEngine("bing images", weight=1.3, features=_Features.SITE)
+_GOOGLE = _SearxEngine("google", weight=1.3, features=_Features.QUOTES | _Features.SITE)
 _GOOGLE_IMAGES = _SearxEngine(
-    "google images",
-    weight=1.3,
-    query_extensions=QueryExtensions.QUOTES | QueryExtensions.SITE,
+    "google images", weight=1.3, features=_Features.QUOTES | _Features.SITE
 )
 _GOOGLE_SCHOLAR = _SearxEngine("google scholar", weight=1.3)
-_MOJEEK = _SearxEngine("mojeek", query_extensions=QueryExtensions.SITE)
+_MOJEEK = _SearxEngine("mojeek", features=_Features.SITE)
 _REDDIT = _SearxEngine("reddit", weight=0.7, mode=SearchMode.WEB)
-_RIGHT_DAO = _SearxEngine(
-    "right dao", query_extensions=QueryExtensions.QUOTES | QueryExtensions.SITE
-)
+_RIGHT_DAO = _SearxEngine("right dao", features=_Features.QUOTES | _Features.SITE)
 _SESE = _JSONEngine(
     "sese",
-    query_extensions=QueryExtensions.SITE,
+    features=_Features.SITE,
     url="https://se-proxy.azurewebsites.net/api/search",
     params={"slice": "0:12"},
     result_path=jsonpath_ng.ext.parse("'结果'[?'信息'.'标题' != '']"),
@@ -396,22 +407,18 @@ _SESE = _JSONEngine(
     title_path=jsonpath_ng.parse("'信息'.'标题'"),
     text_path=jsonpath_ng.parse("'信息'.'描述'"),
 )
-_STRACT = _SearxEngine(
-    "stract", query_extensions=QueryExtensions.QUOTES | QueryExtensions.SITE
-)
-_YEP = _SearxEngine("yep", query_extensions=QueryExtensions.SITE)
-_YEP_IMAGES = _SearxEngine(
-    "yep", mode=SearchMode.IMAGES, query_extensions=QueryExtensions.SITE
-)
+_STRACT = _SearxEngine("stract", features=_Features.QUOTES | _Features.SITE)
+_YEP = _SearxEngine("yep", features=_Features.SITE)
+_YEP_IMAGES = _SearxEngine("yep", mode=SearchMode.IMAGES, features=_Features.SITE)
 
 
-def get_engines(query: ParsedQuery) -> set[Engine]:
+def get_engines(query: ParsedQuery, mode: SearchMode, page: int) -> set[Engine]:
     """Return list of enabled engines for the language."""
     return {
         engine
         for _, engine in inspect.getmembers(sys.modules[__name__])
         if isinstance(engine, Engine)
-        if engine.mode == query.mode
+        if engine.mode == mode
         if engine.supports_language(query.lang)
-        if query.required_extensions() in engine.query_extensions
+        if _Features.required(query, page) in engine.features
     }

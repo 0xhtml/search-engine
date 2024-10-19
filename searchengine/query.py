@@ -5,15 +5,7 @@ from typing import NamedTuple, Optional
 
 import ply.lex
 
-from .lang import detect_lang
-
-
-class QueryExtensions(Flag):
-    """Special query extensions that can be used."""
-
-    PAGING = auto()
-    QUOTES = auto()
-    SITE = auto()
+from .lang import detect_lang, parse_accept_language
 
 
 class SearchMode(Enum):
@@ -38,25 +30,8 @@ class ParsedQuery(NamedTuple):
     """Query parsed into actual query and extra data."""
 
     words: list[str]
-    mode: SearchMode
-    page: int
     lang: str
     site: Optional[str]
-
-    def required_extensions(self) -> QueryExtensions:
-        """Determine which extensions are required for this query."""
-        extensions = QueryExtensions(0)
-
-        if self.page != 1:
-            extensions |= QueryExtensions.PAGING
-
-        if any(" " in word for word in self.words):
-            extensions |= QueryExtensions.QUOTES
-
-        if self.site is not None:
-            extensions |= QueryExtensions.SITE
-
-        return extensions
 
     def __str__(self) -> str:
         """Convert query parts to query string."""
@@ -104,8 +79,8 @@ class QueryParser:
         """Initialize the query parser."""
         self.lexer = ply.lex.lex(module=self)
 
-    def parse_query(self, query: str, mode: SearchMode, page: int) -> ParsedQuery:
-        """Parse a search query into a ParsedQuery object."""
+    def parse_query(self, query: str, accept_language: str) -> ParsedQuery:
+        """Parse a search query into a (words, lang, site) tuple."""
         self.lexer.input(query)
 
         words = []
@@ -121,6 +96,7 @@ class QueryParser:
                 words.append(token.value)
 
         if lang is None:
-            lang = detect_lang(" ".join(words))
+            languages = parse_accept_language(accept_language)
+            lang = detect_lang(" ".join(words), languages or ["en"])
 
-        return ParsedQuery(words, mode, page, lang, site)
+        return ParsedQuery(words, lang, site)

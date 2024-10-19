@@ -69,10 +69,10 @@ class _EngineError(Exception):
 
 
 async def _engine_search(
-    engine: Engine, session: AsyncSession, query: ParsedQuery
+    engine: Engine, session: AsyncSession, query: ParsedQuery, page: int
 ) -> tuple[Engine, list[Result]]:
     try:
-        return engine, await engine.search(session, query)
+        return engine, await engine.search(session, query, page)
     except BaseException as e:
         if not isinstance(e, asyncio.CancelledError):
             traceback.print_exc()
@@ -103,9 +103,11 @@ async def search(request: Request) -> Response:
             {"title": query, "query": query, "mode": mode, "page": page},
         )
 
-    parsed_query = _QUERY_PARSER.parse_query(query, mode, page)
+    parsed_query = _QUERY_PARSER.parse_query(
+        query, request.headers.get("Accept-Language", "")
+    )
 
-    engines = get_engines(parsed_query)
+    engines = get_engines(parsed_query, mode, page)
     important_engines = {engine for engine in engines if engine.weight > 1}
 
     errors = []
@@ -113,7 +115,7 @@ async def search(request: Request) -> Response:
 
     async with AsyncSession(impersonate="chrome") as session:
         tasks = {
-            asyncio.create_task(_engine_search(engine, session, parsed_query))
+            asyncio.create_task(_engine_search(engine, session, parsed_query, page))
             for engine in engines
         }
 
