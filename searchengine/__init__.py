@@ -104,7 +104,7 @@ def _parse_params(params: dict) -> tuple[str, SearchMode, int]:
         raise _HTMLError(_("The search term is empty"), 400)
 
     try:
-        mode = SearchMode(params["mode"].lower())
+        mode = SearchMode(params["mode"])
     except (ValueError, KeyError):
         mode = SearchMode.WEB
 

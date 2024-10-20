@@ -122,11 +122,11 @@ img {
     margin: 0 calc(.5em + 1px) 1.5em;
     display: flex;
 
-    & > [type="submit"], & > span {
+    & > label, & > input, & > span {
         padding: .5em .6em;
     }
 
-    & > [type="submit"] {
+    & > label, & > input {
         cursor: pointer;
         border-radius: 1em;
         margin: 0 .2em;
@@ -137,12 +137,12 @@ img {
         &:hover {
             background: var(--muted);
         }
+    }
 
-        &:disabled {
-            cursor: default;
-            background: var(--hbg);
-            color: var(--hfg);
-        }
+    & > input:disabled + label, & > input:disabled {
+        cursor: default;
+        background: var(--hbg);
+        color: var(--hfg);
     }
 
     & > [value="1"] {
