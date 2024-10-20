@@ -1,8 +1,10 @@
 """Custom (meta) search engine."""
 
 import asyncio
+import contextlib
 import gettext
 import traceback
+from typing import AsyncIterator, TypedDict
 
 import curl_cffi
 import jinja2
@@ -36,6 +38,16 @@ _ENV.filters.update(TEMPLATE_FILTER_MAP)
 _TEMPLATES = Jinja2Templates(env=_ENV)
 
 _QUERY_PARSER = QueryParser()
+
+
+class _State(TypedDict):
+    session: AsyncSession
+
+
+@contextlib.asynccontextmanager
+async def _lifespan(app: Starlette) -> AsyncIterator[_State]:
+    async with AsyncSession(impersonate="chrome") as session:
+        yield {"session": session}
 
 
 class _HTMLError(Exception):
@@ -163,33 +175,30 @@ async def results(request: Request) -> Response:
     errors = []
     results = []
 
-    async with AsyncSession(impersonate="chrome") as session:
-        tasks = {
-            asyncio.create_task(_engine_search(engine, session, parsed_query, page))
-            for engine in engines
-        }
+    tasks = {
+        asyncio.create_task(_engine_search(engine, request.state.session, parsed_query, page))
+        for engine in engines
+    }
 
-        while tasks:
-            done, tasks = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
-            for task in done:
-                try:
-                    results.append(task.result())
-                except _EngineError as e:
-                    errors.append(e)
-            if (
-                {e for e, __ in results} | {e.engine for e in errors}
-            ) >= important_engines:
-                break
-
-        if tasks:
-            await asyncio.wait(tasks, timeout=0.5)
-
-        for task in tasks:
-            task.cancel()
+    while tasks:
+        done, tasks = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+        for task in done:
             try:
-                results.append(await task)
+                results.append(task.result())
             except _EngineError as e:
                 errors.append(e)
+        if ({e for e, __ in results} | {e.engine for e in errors}) >= important_engines:
+            break
+
+    if tasks:
+        await asyncio.wait(tasks, timeout=0.5)
+
+    for task in tasks:
+        task.cancel()
+        try:
+            results.append(await task)
+        except _EngineError as e:
+            errors.append(e)
 
     rated_results = list(rate_results(results, parsed_query.lang))
     rated_results.sort(reverse=True)
@@ -249,6 +258,7 @@ def opensearch(request: Request) -> HTMLResponse:
 
 
 app = Starlette(
+    lifespan=_lifespan,
     routes=[
         Route("/", endpoint=index),
         Route("/search", endpoint=search),
