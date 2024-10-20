@@ -4,49 +4,48 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: searchengine/__init__.py:25 searchengine/templates/base.html:14
-#: searchengine/templates/search.html:38
+#: searchengine/__init__.py:66 searchengine/__init__.py:77
+#: templates/error.html:5 templates/results.html:28
 msgid "Error"
 msgstr ""
 
-#: searchengine/__init__.py:32
+#: searchengine/__init__.py:87
 msgid "The requested page was not not found"
 msgstr ""
 
-#: searchengine/__init__.py:42 searchengine/templates/index.html:8
-#: searchengine/templates/search.html:7
+#: searchengine/__init__.py:93 templates/form.html:10
 msgid "Search"
 msgstr ""
 
-#: searchengine/__init__.py:60
+#: searchengine/__init__.py:100
 msgid "No search term was received"
 msgstr ""
 
-#: searchengine/__init__.py:64
+#: searchengine/__init__.py:104
 msgid "The search term is empty"
 msgstr ""
 
-#: searchengine/templates/base.html:5 searchengine/templates/base.html:9
-#: searchengine/templates/opensearch.xml:3
+#: templates/base.html:5 templates/base.html:9 templates/opensearch.xml:3
+#: templates/htmx.html:1
 msgid "Websearch"
 msgstr ""
 
-#: searchengine/templates/base.html:8 searchengine/templates/opensearch.xml:4
+#: templates/base.html:8 templates/opensearch.xml:4
 msgid "A (meta) search engine"
 msgstr ""
 
-#: searchengine/templates/index.hml:6 searchengine/templates/search.html:5
+#: templates/form.hml:8
 msgid "Search the web..."
 msgstr ""
 
-#: searchengine/templates/search.html:10
+#: templates/search.html:8
 msgid "Web"
 msgstr ""
 
-#: searchengine/templates/search.html:10
+#: templates/search.html:8
 msgid "Images"
 msgstr ""
 
-#: searchengine/templates/search.html:10
+#: templates/search.html:8
 msgid "Scholar"
 msgstr ""
