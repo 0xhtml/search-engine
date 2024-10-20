@@ -6,6 +6,7 @@ import gettext
 import traceback
 from typing import AsyncIterator, TypedDict
 
+import aiocache
 import curl_cffi
 import jinja2
 from curl_cffi.requests import AsyncSession
@@ -147,11 +148,12 @@ class _EngineError(Exception):
         return f"{self.engine}: {traceback.format_exception_only(self.exc)[0]}"
 
 
+@aiocache.cached(noself=True, ttl=60 * 60)
 async def _engine_search(
-    engine: Engine, session: AsyncSession, query: ParsedQuery, page: int
+    state: _State, engine: Engine, query: ParsedQuery, page: int
 ) -> tuple[Engine, list[Result]]:
     try:
-        return engine, await engine.search(session, query, page)
+        return engine, await engine.search(state.session, query, page)
     except BaseException as e:
         if not isinstance(e, asyncio.CancelledError):
             traceback.print_exc()
@@ -172,11 +174,11 @@ async def results(request: Request) -> Response:
     engines = get_engines(parsed_query, mode, page)
     important_engines = {engine for engine in engines if engine.weight > 1}
 
-    errors = []
+    errors = set()
     results = []
 
     tasks = {
-        asyncio.create_task(_engine_search(engine, request.state.session, parsed_query, page))
+        asyncio.create_task(_engine_search(request.state, engine, parsed_query, page))
         for engine in engines
     }
 
@@ -186,8 +188,11 @@ async def results(request: Request) -> Response:
             try:
                 results.append(task.result())
             except _EngineError as e:
-                errors.append(e)
-        if ({e for e, __ in results} | {e.engine for e in errors}) >= important_engines:
+                errors.add(e)
+        if (
+            {engine for engine, engine_results in results}
+            | {error.engine for error in errors}
+        ) >= important_engines:
             break
 
     if tasks:
@@ -198,7 +203,7 @@ async def results(request: Request) -> Response:
         try:
             results.append(await task)
         except _EngineError as e:
-            errors.append(e)
+            errors.add(e)
 
     rated_results = list(rate_results(results, parsed_query.lang))
     rated_results.sort(reverse=True)
