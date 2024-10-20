@@ -1,4 +1,7 @@
-<ul class="results">
+{% extends results_base %}
+
+{% block after %}
+<ul class="results" id="target">
     {% for r in results %}
     <li class="{{ r.result_type() }}">
         {% if r.result_type() == "web" %}
@@ -20,14 +23,15 @@
         <small>{{ "{:.1f}".format(r.rating) }} - {{ r.engines | map("string") | sort | join(" ") }}</small>
     </li>
     {% endfor %}
+    {% if engine_errors %}
+    <div class="error">
+        <h4>{{ _("Error") }}</h4>
+        <ul>
+            {% for error in engine_errors %}
+            <li>{{ error }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
 </ul>
-{% if engine_errors %}
-<div class="error">
-    <h4>{{ _("Error") }}</h4>
-    <ul>
-        {% for error in engine_errors %}
-        <li>{{ error }}</li>
-        {% endfor %}
-    </ul>
-</div>
-{% endif %}
+{% endblock %}

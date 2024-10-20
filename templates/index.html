@@ -1,10 +1,9 @@
-{% extends "base.html" %}
+{% extends "form.html" %}
 
-{% block content %}
+{% block before %}
 <img class="logo" src="{{ url_for("static", path="logo.png") }}" alt="Suche" width="697" height="242">
-<form action="{{ url_for("search") }}" class="search">
-    <input type="search" name="q" placeholder="{{ _("Search the web...") }}" required>
-    <input type="reset" value="&times;">
-    <input type="submit" value="{{ _("Search") }}">
-</form>
+{% endblock %}
+
+{% block after %}
+<div id="target"></div>
 {% endblock %}

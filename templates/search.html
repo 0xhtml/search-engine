@@ -1,62 +1,62 @@
-{% extends "base.html" %}
+{% extends "form.html" %}
 
-{% block content %}
-<script src="{{ url_for("static", path="htmx.min.js") }}"></script>
-<form action="{{ url_for("search") }}">
-    <div class="search">
-        <input type="search" name="q" placeholder="{{ _("Search the web...") }}" value="{{ query }}" required>
-        <input type="reset" value="&times;" onclick="event.preventDefault();document.getElementsByName('q')[0].value=''">
-        <input type="submit" value="{{ _("Search") }}">
-    </div>
-    <div class="options">
-        {% for m in SearchMode %}
-        <input type="radio" name="mode" value="{{ m.value }}" id="{{ m.value }}" {% if m == mode %}checked{% else %}onchange="document.getElementsByTagName('form')[0].submit()"{% endif %}>
-        <label for="{{ m.value }}">{{ _(m.value.capitalize()) }}</label>
-        {% endfor %}
-        {% if page < 5 %}
-        {% for i in range(1, 6) %}
-        <input type="submit" name="page" value="{{ i }}"{% if page == i %} disabled{% endif %}>
-        {% endfor %}
-        {% else %}
-        <input type="submit" name="page" value="1">
-        <span>&hellip;</span>
-        {% if page < 9 %}
-        <input type="submit" name="page" value="{{ page - 1 }}">
-        <input type="submit" name="page" value="{{ page }}" disabled>
-        <input type="submit" name="page" value="{{ page + 1 }}">
-        {% else %}
-        <input type="submit" name="page" value="{{ page - 2 }}">
-        <input type="submit" name="page" value="{{ page - 1 }}">
-        <input type="submit" name="page" value="{{ page }}" disabled>
-        {% endif %}
-        {% endif %}
-    </div>
-</form>
-<ul class="results" hx-get="{{ url_for("search") }}?{{ request.query_params }}" hx-trigger="load" hx-swap="outerHTML">
+{% block form_extra %}
+<input type="hidden" name="mode" value="{{ mode.value }}">
+<div class="options">
+    {% for m in SearchMode %}
+    <input type="submit" name="mode" value="{{ m.value.capitalize() }}"{% if m == mode %} disabled{% endif %}>
+    {% endfor %}
+    {% if page < 5 %}
+    {% for i in range(1, 6) %}
+    <input type="submit" name="page" value="{{ i }}"{% if page == i %} disabled{% endif %}>
+    {% endfor %}
+    {% else %}
+    <input type="submit" name="page" value="1">
+    <span>&hellip;</span>
+    {% if page < 9 %}
+    <input type="submit" name="page" value="{{ page - 1 }}">
+    <input type="submit" name="page" value="{{ page }}" disabled>
+    <input type="submit" name="page" value="{{ page + 1 }}">
+    {% else %}
+    <input type="submit" name="page" value="{{ page - 2 }}">
+    <input type="submit" name="page" value="{{ page - 1 }}">
+    <input type="submit" name="page" value="{{ page }}" disabled>
+    {% endif %}
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block after %}
+<ul class="results" id="loading">
     {% for _ in range(10) %}
     {% if mode == SearchMode.IMAGES %}
     <li class="image">
         <a>
-            <span class="loading" style="width: {{ loop.cycle(10, 12, 11) }}em; height: {{ loop.cycle(10, 8, 9, 11, 12) }}em"></span>
+            <span style="width: {{ loop.cycle(10, 12, 11) }}em; height: {{ loop.cycle(10, 8, 9, 11, 12) }}em"></span>
         </a>
-        <small><span class="loading" style="width: {{ loop.cycle(8, 6, 6) }}em"></span></small>
+        <small><span style="width: {{ loop.cycle(8, 6, 6) }}em"></span></small>
     </li>
     {% else %}
     <li class="web">
         <a>
-            <small><span class="loading" style="width: {{ loop.cycle(20, 16, 20) }}em"></span></small>
-            <h3><span class="loading" style="width: {{ loop.cycle(37, 22, 34, 24) }}em"></span></h3>
+            <small><span style="width: {{ loop.cycle(20, 16, 20) }}em"></span></small>
+            <h3><span style="width: {{ loop.cycle(37, 22, 34, 24) }}em"></span></h3>
         </a>
         <p>
-            <span class="loading" style="width: {{ loop.cycle(98, 99, 95) }}%"></span>
+            <span style="width: {{ loop.cycle(98, 99, 95) }}%"></span>
             {% if loop.cycle(true, false, true) %}
-            <span class="loading" style="width: {{ loop.cycle(99, 95, 95) }}%"></span>
+            <span style="width: {{ loop.cycle(99, 95, 95) }}%"></span>
             {% endif %}
-            <span class="loading" style="width: {{ loop.cycle(88, 85, 89) }}%"></span>
+            <span style="width: {{ loop.cycle(88, 85, 89) }}%"></span>
         </p>
-        <small><span class="loading" style="width: {{ loop.cycle(8, 6, 6) }}em"></span></small>
+        <small><span style="width: {{ loop.cycle(8, 6, 6) }}em"></span></small>
     </li>
     {% endif %}
     {% endfor %}
 </ul>
+{% set url = url_for("results") | string + "?" + {"q": query, "mode": mode.value, "page": page} | urlencode %}
+<div id="target" hx-get="{{ url }}" hx-swap="outerHTML" hx-trigger="load" hx-indicator="#loading" hx-on::send-error="window.location=this.getAttribute('hx-get')" hx-on::response-error="window.location=this.getAttribute('hx-get')"></div>
+<noscript>
+    <meta http-equiv="refresh" content="0;url={{ url }}">
+</noscript>
 {% endblock %}

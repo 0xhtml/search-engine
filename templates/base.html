@@ -7,15 +7,9 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="description" content="{{ _("A (meta) search engine") }}">
         <link rel="search" type="application/opensearchdescription+xml" title="{{ _("Websearch") }}" href="{{ url_for("opensearch") }}">
+        <script src="{{ url_for("static", path="htmx.min.js") }}"></script>
     </head>
     <body>
-        {% if error_message is defined %}
-        <div class="error">
-            <h4>{{ _("Error") }}</h4>
-            <p>{{ error_message }}</p>
-        </div>
-        {% endif %}
-
         {% block content %}
         {% endblock %}
     </body>
