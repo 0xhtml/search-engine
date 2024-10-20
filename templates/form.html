@@ -10,6 +10,8 @@
         <input type="submit" value="{{ _("Search") }}">
     </div>
     {% block form_extra %}
+    <input type="hidden" name="mode" value="{{ SearchMode.WEB.value }}">
+    <input type="hidden" name="page" value="1">
     {% endblock %}
 </form>
 {% block after %}

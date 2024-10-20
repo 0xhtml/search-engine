@@ -2,6 +2,7 @@
 
 {% block form_extra %}
 <input type="hidden" name="mode" value="{{ mode.value }}">
+<input type="hidden" name="page" value="1">
 <div class="options">
     {% for m in SearchMode %}
     <input type="submit" name="mode" id="{{ m.value }}" value="{{ m.value }}" hidden{% if m == mode %} disabled{% endif %}>

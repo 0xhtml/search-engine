@@ -40,6 +40,8 @@ _TEMPLATES = Jinja2Templates(env=_ENV)
 
 _QUERY_PARSER = QueryParser()
 
+_MAX_AGE = 60 * 60
+
 
 class _State(TypedDict):
     session: AsyncSession
@@ -90,7 +92,10 @@ def page_not_found(request: Request, exception: Exception) -> Response:
 def index(request: Request) -> HTMLResponse:
     """Return the start page."""
     return _TEMPLATES.TemplateResponse(
-        request, "index.html", {"form_base": "base.html", "title": _("Search")}
+        request,
+        "index.html",
+        {"form_base": "base.html", "title": _("Search")},
+        headers={"Cache-Control": f"max-age={_MAX_AGE}"},
     )
 
 
@@ -136,6 +141,7 @@ def search(request: Request) -> Response:
             "page": page,
             "load": True,
         },
+        headers={"Cache-Control": f"max-age={_MAX_AGE}"},
     )
 
 
@@ -148,7 +154,7 @@ class _EngineError(Exception):
         return f"{self.engine}: {traceback.format_exception_only(self.exc)[0]}"
 
 
-@aiocache.cached(noself=True, ttl=60 * 60)
+@aiocache.cached(noself=True, ttl=_MAX_AGE)
 async def _engine_search(
     state: _State, engine: Engine, query: ParsedQuery, page: int
 ) -> tuple[Engine, list[Result]]:
@@ -225,6 +231,7 @@ async def results(request: Request) -> Response:
             "results": rated_results,
             "engine_errors": errors,
         },
+        headers={"Vary": "Accept-Language", "Cache-Control": f"max-age={_MAX_AGE}"},
     )
 
 
@@ -252,7 +259,11 @@ async def img(request: Request) -> Response:
     if not resp.headers.get("Content-Type", "").startswith("image/"):
         return _HTMLError("Not an image", 500).response(request)
 
-    return Response(content=resp.content, media_type=resp.headers["Content-Type"])
+    return Response(
+        content=resp.content,
+        media_type=resp.headers["Content-Type"],
+        headers={"Cache-Control": f"max-age={_MAX_AGE*10}"},
+    )
 
 
 def opensearch(request: Request) -> HTMLResponse:
