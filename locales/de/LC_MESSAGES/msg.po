@@ -8,26 +8,34 @@ msgstr ""
 msgid "en"
 msgstr "de"
 
-#: searchengine/__init__.py:66 searchengine/__init__.py:77
+#: searchengine/__init__.py:68 searchengine/__init__.py:79
 #: templates/error.html:5 templates/results.html:28
 msgid "Error"
 msgstr "Fehler"
 
-#: searchengine/__init__.py:87
+#: searchengine/__init__.py:89
 msgid "The requested page was not not found"
 msgstr "Die Seite wurde nicht gefunden"
 
-#: searchengine/__init__.py:93 templates/form.html:10
+#: searchengine/__init__.py:97 templates/form.html:10
 msgid "Search"
 msgstr "Suchen"
 
-#: searchengine/__init__.py:100
+#: searchengine/__init__.py:106
 msgid "No search term was received"
 msgstr "Wir haben keinen Suchbegriff empfangen können"
 
-#: searchengine/__init__.py:104
+#: searchengine/__init__.py:108
 msgid "The search term is empty"
 msgstr "Der Suchbegriff ist leer"
+
+#: searchengine/__init__.py:113
+msgid "Invalid search mode"
+msgstr "Ungültiger Suchmodus"
+
+#: searchengine/__init__.py:118
+msgid "Invalid page number"
+msgstr "Ungültige Seitennummer"
 
 #: templates/base.html:5 templates/base.html:9 templates/opensearch.xml:3
 #: templates/htmx.html:1
@@ -42,14 +50,14 @@ msgstr "Eine (Meta-)Suchmaschine"
 msgid "Search the web..."
 msgstr "Dursuche das Web..."
 
-#: templates/search.html:8
+#: templates/search.html:9
 msgid "Web"
 msgstr "Web"
 
-#: templates/search.html:8
+#: templates/search.html:9
 msgid "Images"
 msgstr "Bilder"
 
-#: templates/search.html:8
+#: templates/search.html:9
 msgid "Scholar"
 msgstr "Scholar"

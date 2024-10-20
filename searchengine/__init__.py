@@ -100,23 +100,22 @@ def index(request: Request) -> HTMLResponse:
 
 
 def _parse_params(params: dict) -> tuple[str, SearchMode, int]:
-    query = params.get("q")
-    if query is None:
-        raise _HTMLError(_("No search term was received"), 400)
-
-    query = query.strip()
+    try:
+        query = params["q"].strip()
+    except KeyError as e:
+        raise _HTMLError(_("No search term was received"), 400) from e
     if not query:
         raise _HTMLError(_("The search term is empty"), 400)
 
     try:
         mode = SearchMode(params["mode"])
-    except (ValueError, KeyError):
-        mode = SearchMode.WEB
+    except (ValueError, KeyError) as e:
+        raise _HTMLError(_("Invalid search mode"), 400) from e
 
     try:
         page = int(params["page"])
-    except (ValueError, KeyError):
-        page = 1
+    except (ValueError, KeyError) as e:
+        raise _HTMLError(_("Invalid page number"), 400) from e
 
     return query, mode, page
 
