@@ -4,6 +4,10 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
+#: templates/base.html:2
+msgid "en"
+msgstr ""
+
 #: searchengine/__init__.py:66 searchengine/__init__.py:77
 #: templates/error.html:5 templates/results.html:28
 msgid "Error"
