@@ -18,27 +18,28 @@ import searx
 import searx.data
 import searx.enginelib
 import searx.engines
-from curl_cffi.requests import AsyncSession, Response
+from curl_cffi.requests import AsyncSession, HttpMethod, Response
 from lxml import etree, html
 
 from .query import ParsedQuery, SearchMode
 from .results import AnswerResult, ImageResult, Result, WebResult
 from .url import Url
 
-type _Method = Literal["GET", "POST"]
 
-
-class _Params(TypedDict):
+class _RequiredParams(TypedDict):
     cookies: dict[str, str]
     data: Optional[str]
     headers: dict[str, str]
     language: str
-    method: _Method
+    method: HttpMethod
     pageno: int
     safesearch: Literal[0, 1, 2]
     searxng_locale: str
     time_range: Optional[str]
-    url: Optional[str]
+
+
+class _Params(_RequiredParams, total=False):
+    url: str
 
 
 class _Features(Flag):
@@ -83,7 +84,7 @@ class Engine(ABC):
         mode: SearchMode = SearchMode.WEB,
         weight: float = 1.0,
         features: _Features = _DEFAULT_FEATURES,
-        method: _Method = "GET",
+        method: HttpMethod = "GET",
     ) -> None:
         """Initialize engine."""
         self._name = name
@@ -119,20 +120,18 @@ class Engine(ABC):
         """Perform a search and return the results."""
         params = self._request(
             query,
-            {
-                "cookies": {},
-                "data": None,
-                "headers": {},
-                "language": query.lang,
-                "method": self._method,
-                "pageno": page,
-                "safesearch": 2,
-                "searxng_locale": query.lang,
-                "time_range": None,
-                "url": None,
-            },
+            _Params(
+                cookies={},
+                data=None,
+                headers={},
+                language=query.lang,
+                method=self._method,
+                pageno=page,
+                safesearch=2,
+                searxng_locale=query.lang,
+                time_range=None,
+            ),
         )
-        assert params["url"] is not None
 
         response = await session.request(
             params["method"],
@@ -165,7 +164,7 @@ class _CstmEngine[Path, Element](Engine):
         mode: SearchMode = SearchMode.WEB,
         weight: float = 1.0,
         features: _Features = _DEFAULT_FEATURES,
-        method: _Method = "GET",
+        method: HttpMethod = "GET",
         url: str,
         query_key: str = "q",
         params: dict[str, str] = _DEFAULT_PARAMS,
@@ -308,7 +307,7 @@ class _SearxEngine(Engine):
         mode: Optional[SearchMode] = None,
         weight: float = 1.0,
         features: _Features = _DEFAULT_FEATURES,
-        method: _Method = "GET",
+        method: HttpMethod = "GET",
     ) -> None:
         for engine in searx.settings["engines"]:
             if engine["name"] == name:

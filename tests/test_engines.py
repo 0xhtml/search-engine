@@ -1,38 +1,25 @@
 """Tests to test the engines."""
 
 import inspect
-from typing import Optional
 
+import pydantic
 import pytest
+from curl_cffi.requests import AsyncSession
+
 import searchengine.engines
-from searchengine.engines import Engine
+from searchengine.engines import Engine, _Params
 from searchengine.query import ParsedQuery
 
+_Params.__pydantic_config__ = pydantic.ConfigDict(  # type: ignore[attr-defined]
+    strict=True, str_min_length=1
+)
+_TYPE_ADAPTER = pydantic.TypeAdapter(_Params)
+_QUERY = ParsedQuery(["query"], "en", None)
+_SESSION = AsyncSession()
 
-class _DummyResponse:
-    def __init__(self, url: str) -> None:
-        self.url = url
-        self.status_code = 200
 
-
-class _DummySession:
-    async def request(
-        self,
-        method: str,
-        url: str,
-        headers: dict[str, str],
-        data: Optional[str],
-        cookies: dict[str, str],
-    ) -> _DummyResponse:
-        assert method in {"GET", "POST"}
-        assert isinstance(url, str)
-        assert url
-        assert isinstance(headers, dict)
-        assert all(isinstance(x, str) for x in headers.keys() | headers.values())
-        assert data is None or (isinstance(data, str) and data)
-        assert isinstance(cookies, dict)
-        assert all(isinstance(x, str) for x in cookies.keys() | cookies.values())
-        return _DummyResponse(url)
+class _ExitEarlyError(Exception):
+    pass
 
 
 @pytest.mark.parametrize(
@@ -44,8 +31,17 @@ class _DummySession:
     ],
 )
 @pytest.mark.asyncio
-async def test_search(engine: Engine) -> None:
-    """Test if the parameters to request get populated."""
-    engine._response = lambda _: None  # noqa: SLF001
-    query = ParsedQuery(["query"], "en", None)
-    await engine.search(_DummySession(), query, 1)
+async def test_request(engine: Engine) -> None:
+    """Test if the parameters get populated correctly."""
+    super_request = engine._request
+
+    def _request(query: ParsedQuery, params: _Params) -> _Params:
+        params = super_request(query, params)
+        _TYPE_ADAPTER.validate_python(params)
+        assert "url" in params
+        raise _ExitEarlyError
+
+    engine._request = _request  # type: ignore[method-assign]
+
+    with pytest.raises(_ExitEarlyError):
+        await engine.search(_SESSION, _QUERY, 1)
