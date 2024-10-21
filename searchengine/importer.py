@@ -9,8 +9,8 @@ _builtin_import = builtins.__import__
 
 def _import(
     name: str,
-    _globals: Optional[Mapping[str, object]] = None,
-    _locals: Optional[Mapping[str, object]] = None,
+    globals: Optional[Mapping[str, object]] = None,  # noqa: A002
+    locals: Optional[Mapping[str, object]] = None,  # noqa: A002
     fromlist: Sequence[str] = (),
     level: int = 0,
 ) -> ModuleType:
@@ -20,7 +20,7 @@ def _import(
         mod.raise_for_httperror = lambda _: None  # type: ignore[attr-defined]
         return mod
 
-    return _builtin_import(name, _globals, _locals, fromlist, level)
+    return _builtin_import(name, globals, locals, fromlist, level)
 
 
 builtins.__import__ = _import

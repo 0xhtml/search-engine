@@ -1,5 +1,6 @@
 """Module containing filter functions for the templates."""
 
+from typing import Any
 from urllib.parse import unquote, urlencode
 
 import markupsafe
@@ -49,7 +50,7 @@ def _pretty_url(url: Url) -> markupsafe.Markup:
 
 
 @pass_context
-def _proxy(ctx: dict, url: Url) -> str:
+def _proxy(ctx: dict[str, Any], url: Url) -> str:
     return (
         str(ctx["request"].url_for("img"))
         + "?"

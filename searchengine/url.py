@@ -6,9 +6,10 @@ import urllib.parse
 class Url(urllib.parse.ParseResult):
     """URL class that extends urllib.parse.ParseResult."""
 
-    def __new__(cls, url: str) -> "Url":
+    @classmethod
+    def parse(cls, url: str) -> "Url":
         """Parse the url and return a new instance of Url."""
-        return super().__new__(cls, *urllib.parse.urlparse(url))
+        return cls(*urllib.parse.urlparse(url))
 
     @property
     def host(self) -> str:

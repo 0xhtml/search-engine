@@ -1,6 +1,6 @@
 """Module containing functions to work with queries."""
 
-from enum import Enum, Flag, auto
+from enum import Enum
 from typing import NamedTuple, Optional
 
 import ply.lex
@@ -54,17 +54,17 @@ class QueryParser:
 
     tokens = ("LANG", "SITE", "QUOTED_WORD", "WORD")
 
-    def t_LANG(self, t):
+    def t_LANG(self, t: ply.lex.LexToken) -> ply.lex.LexToken:
         r"lang:\S+|:(de|en)(?!\S)"
         t.value = t.value.removeprefix("lang").removeprefix(":")
         return t
 
-    def t_SITE(self, t):
+    def t_SITE(self, t: ply.lex.LexToken) -> ply.lex.LexToken:
         r"site:\S+"
         t.value = t.value.removeprefix("site:")
         return t
 
-    def t_QUOTED_WORD(self, t):
+    def t_QUOTED_WORD(self, t: ply.lex.LexToken) -> ply.lex.LexToken:
         r'"[^"]+("|$)'
         t.value = t.value.strip('"')
         return t
@@ -72,7 +72,7 @@ class QueryParser:
     t_WORD = r"\S+"
     t_ignore = " "
 
-    def t_error(self, t):
+    def t_error(self, t: ply.lex.LexToken) -> None:
         raise RuntimeError(f"Unexpected token: {t.value}")
 
     def __init__(self) -> None:

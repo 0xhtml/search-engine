@@ -4,21 +4,22 @@ import asyncio
 import contextlib
 import gettext
 import traceback
-from typing import AsyncIterator, TypedDict
+from typing import TYPE_CHECKING, AsyncIterator, TypedDict
 
 import aiocache
 import curl_cffi
 import jinja2
 from curl_cffi.requests import AsyncSession
 from starlette.applications import Starlette
+from starlette.datastructures import QueryParams
 from starlette.requests import Request
 from starlette.responses import HTMLResponse, Response
 from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 from starlette.templating import Jinja2Templates
 
-from .engines import Engine, SearchMode, get_engines
-from .query import ParsedQuery, QueryParser
+from .engines import Engine, get_engines
+from .query import ParsedQuery, QueryParser, SearchMode
 from .rate import MAX_RESULTS, rate_results
 from .results import Result
 from .sha import gen_sha
@@ -26,6 +27,8 @@ from .template_filter import TEMPLATE_FILTER_MAP
 
 _TRANSLATION = gettext.translation("messages", "locales", fallback=True)
 _TRANSLATION.install()
+if TYPE_CHECKING:
+    _ = _TRANSLATION.gettext
 
 _ENV = jinja2.Environment(
     autoescape=True,
@@ -34,7 +37,7 @@ _ENV = jinja2.Environment(
     trim_blocks=True,
     extensions=["jinja2.ext.i18n"],
 )
-_ENV.install_gettext_translations(_TRANSLATION)
+_ENV.install_gettext_translations(_TRANSLATION)  # type: ignore[attr-defined]
 _ENV.globals["SearchMode"] = SearchMode
 _ENV.filters.update(TEMPLATE_FILTER_MAP)
 
@@ -101,7 +104,7 @@ def index(request: Request) -> HTMLResponse:
     )
 
 
-def _parse_params(params: dict) -> tuple[str, SearchMode, int]:
+def _parse_params(params: QueryParams) -> tuple[str, SearchMode, int]:
     try:
         query = params["q"].strip()
     except KeyError as e:
@@ -160,7 +163,7 @@ async def _engine_search(
     state: _State, engine: Engine, query: ParsedQuery, page: int
 ) -> tuple[Engine, list[Result]]:
     try:
-        return engine, await engine.search(state.session, query, page)
+        return engine, await engine.search(state.session, query, page)  # type: ignore[attr-defined]
     except BaseException as e:
         if not isinstance(e, asyncio.CancelledError):
             traceback.print_exc()

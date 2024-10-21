@@ -8,7 +8,8 @@ import sys
 from abc import ABC, abstractmethod
 from enum import Flag, auto
 from html import unescape
-from typing import Any, Optional
+from types import ModuleType
+from typing import Any, Literal, Optional, TypedDict
 from urllib.parse import urlencode, urljoin
 
 import jsonpath_ng
@@ -23,6 +24,21 @@ from lxml import etree, html
 from .query import ParsedQuery, SearchMode
 from .results import AnswerResult, ImageResult, Result, WebResult
 from .url import Url
+
+type _Method = Literal["GET", "POST"]
+
+
+class _Params(TypedDict):
+    cookies: dict[str, str]
+    data: Optional[str]
+    headers: dict[str, str]
+    language: str
+    method: _Method
+    pageno: int
+    safesearch: Literal[0, 1, 2]
+    searxng_locale: str
+    time_range: Optional[str]
+    url: Optional[str]
 
 
 class _Features(Flag):
@@ -67,7 +83,7 @@ class Engine(ABC):
         mode: SearchMode = SearchMode.WEB,
         weight: float = 1.0,
         features: _Features = _DEFAULT_FEATURES,
-        method: str = "GET",
+        method: _Method = "GET",
     ) -> None:
         """Initialize engine."""
         self._name = name
@@ -83,7 +99,7 @@ class Engine(ABC):
             print(f"[!] [{self}] [{tag}] {msg}")
 
     @abstractmethod
-    def _request(self, query: ParsedQuery, params: dict[str, Any]) -> dict[str, Any]:
+    def _request(self, query: ParsedQuery, params: _Params) -> _Params:
         pass
 
     @abstractmethod
@@ -101,18 +117,22 @@ class Engine(ABC):
         page: int,
     ) -> list[Result]:
         """Perform a search and return the results."""
-        params = {
-            "searxng_locale": query.lang,
-            "language": query.lang,
-            "time_range": None,
-            "pageno": page,
-            "safesearch": 2,
-            "method": self._method,
-            "headers": {},
-            "data": None,
-            "cookies": {},
-        }
-        params = self._request(query, params)
+        params = self._request(
+            query,
+            {
+                "cookies": {},
+                "data": None,
+                "headers": {},
+                "language": query.lang,
+                "method": self._method,
+                "pageno": page,
+                "safesearch": 2,
+                "searxng_locale": query.lang,
+                "time_range": None,
+                "url": None,
+            },
+        )
+        assert params["url"] is not None
 
         response = await session.request(
             params["method"],
@@ -125,8 +145,8 @@ class Engine(ABC):
         if not (200 <= response.status_code < 300):
             raise StatusCodeError(response)
 
-        response.search_params = params  # type: ignore[attr-defined]
-        response.url = Url(response.url)
+        response.search_params = params
+        response.url = Url.parse(response.url)
         return self._response(response)
 
     def __str__(self) -> str:
@@ -145,7 +165,7 @@ class _CstmEngine[Path, Element](Engine):
         mode: SearchMode = SearchMode.WEB,
         weight: float = 1.0,
         features: _Features = _DEFAULT_FEATURES,
-        method: str = "GET",
+        method: _Method = "GET",
         url: str,
         query_key: str = "q",
         params: dict[str, str] = _DEFAULT_PARAMS,
@@ -156,7 +176,8 @@ class _CstmEngine[Path, Element](Engine):
         src_path: Optional[Path] = None,
     ) -> None:
         if mode == SearchMode.IMAGES and src_path is None:
-            raise ValueError("src_path is required for image search")
+            msg = "src_path is required for image search"
+            raise ValueError(msg)
 
         self._url = url
         self._query_key = query_key
@@ -190,13 +211,17 @@ class _CstmEngine[Path, Element](Engine):
     def _get(root: Element, path: Optional[Path]) -> str:
         pass
 
-    def _request(self, query: ParsedQuery, params: dict[str, Any]) -> dict[str, Any]:
+    def _request(self, query: ParsedQuery, params: _Params) -> _Params:
         data = {self._query_key: str(query), **self._params}
 
-        params["url"] = (
-            f"{self._url}?{urlencode(data)}" if self._method == "GET" else self._url
-        )
-        params["data"] = json.dumps(data) if self._method == "POST" else None
+        if self._method == "GET":
+            params["url"] = f"{self._url}?{urlencode(data)}"
+        elif self._method == "POST":
+            params["url"] = self._url
+            params["data"] = json.dumps(data)
+        else:
+            msg = f"Unsupported method {self._method}"
+            raise ValueError(msg)
 
         return params
 
@@ -211,14 +236,14 @@ class _CstmEngine[Path, Element](Engine):
 
             _url = self._get(result, self._url_path)
             assert _url
-            url = Url(urljoin(str(response.url), _url))
+            url = Url.parse(urljoin(str(response.url), _url))
 
             text = self._get(result, self._text_path)
 
             if self.mode == SearchMode.IMAGES:
                 src = self._get(result, self._src_path)
                 assert src
-                results.append(ImageResult(title, url, text, Url(src)))
+                results.append(ImageResult(title, url, text, Url.parse(src)))
                 continue
 
             results.append(WebResult(title, url, text))
@@ -235,7 +260,6 @@ class _XPathEngine(_CstmEngine[etree.XPath, html.HtmlElement]):
     def _iter(root: html.HtmlElement, path: etree.XPath) -> list[html.HtmlElement]:
         elems = path(root)
         assert isinstance(elems, list)
-        assert all(isinstance(elem, html.HtmlElement) for elem in elems)
         return elems
 
     @staticmethod
@@ -245,29 +269,35 @@ class _XPathEngine(_CstmEngine[etree.XPath, html.HtmlElement]):
         assert isinstance(elems, list)
         if isinstance(elems[0], str):
             return elems[0]
-        return html.tostring(
+        result = html.tostring(
             elems[0],
             encoding="unicode",
             method="text",
             with_tail=False,
         )
+        assert isinstance(result, str)
+        return result
 
 
-class _JSONEngine(_CstmEngine[jsonpath_ng.JSONPath, dict]):
+class _JSONEngine(_CstmEngine[jsonpath_ng.JSONPath, dict[str, Any]]):
     @staticmethod
-    def _parse_response(response: Response) -> dict:
-        return response.json()
+    def _parse_response(response: Response) -> dict[str, Any]:
+        result = response.json()
+        assert isinstance(result, dict)
+        return result
 
     @staticmethod
-    def _iter(root: dict, path: jsonpath_ng.JSONPath) -> list[dict]:
-        return path.find(root)
+    def _iter(root: dict[str, Any], path: jsonpath_ng.JSONPath) -> list[dict[str, Any]]:
+        elems = path.find(root)
+        return [elem.value for elem in elems]
 
     @staticmethod
-    def _get(root: dict, path: Optional[jsonpath_ng.JSONPath]) -> str:
+    def _get(root: dict[str, Any], path: Optional[jsonpath_ng.JSONPath]) -> str:
         if path is None or not (elems := path.find(root)):
             return ""
-        assert isinstance(elems, list)
-        return elems[0].value
+        result = elems[0].value
+        assert isinstance(result, str)
+        return result
 
 
 class _SearxEngine(Engine):
@@ -278,16 +308,17 @@ class _SearxEngine(Engine):
         mode: Optional[SearchMode] = None,
         weight: float = 1.0,
         features: _Features = _DEFAULT_FEATURES,
-        method: str = "GET",
+        method: _Method = "GET",
     ) -> None:
         for engine in searx.settings["engines"]:
             if engine["name"] == name:
-                self._engine = searx.engines.load_engine(engine)
-                if self._engine is None:
-                    raise ValueError(f"Failed to load searx engine {name}")
+                _engine = searx.engines.load_engine(engine)
+                assert isinstance(_engine, ModuleType)
+                self._engine = _engine
                 break
         else:
-            raise ValueError(f"Searx engine {name} not found")
+            msg = f"Searx engine {name} not found"
+            raise ValueError(msg)
 
         if mode is None:
             for _mode in SearchMode:
@@ -295,9 +326,10 @@ class _SearxEngine(Engine):
                     mode = _mode
                     break
             else:
-                raise ValueError(f"Failed to detect mode for {name}")
+                msg = f"Failed to detect mode for {name}"
+                raise ValueError(msg)
         else:
-            self._engine.search_type = mode.value
+            self._engine.search_type = mode.value  # type: ignore[attr-defined]
 
         if self._engine.paging:
             features |= _Features.PAGING
@@ -310,8 +342,8 @@ class _SearxEngine(Engine):
             method=method,
         )
 
-    def _request(self, query: ParsedQuery, params: dict[str, Any]) -> dict[str, Any]:
-        return self._engine.request(str(query), params)
+    def _request(self, query: ParsedQuery, params: _Params) -> _Params:
+        return self._engine.request(str(query), params)  # type: ignore[no-any-return]
 
     def _response(self, response: Response) -> list[Result]:
         if not response.text:
@@ -329,7 +361,7 @@ class _SearxEngine(Engine):
                 self._log(f"result w/o URL {result}")
                 continue
 
-            url = Url(result["url"])
+            url = Url.parse(result["url"])
 
             if "answer" in result:
                 assert isinstance(result["answer"], str)
@@ -353,7 +385,7 @@ class _SearxEngine(Engine):
                         result["title"],
                         url,
                         result.get("content", ""),
-                        Url(unescape(src)),
+                        Url.parse(unescape(src)),
                     )
                 )
                 continue
@@ -373,6 +405,7 @@ class _SearxEngine(Engine):
     def supports_language(self, language: str) -> bool:
         if not self._engine.language_support:
             return super().supports_language(language)
+        assert isinstance(self._engine.traits, searx.enginelib.traits.EngineTraits)
         return self._engine.traits.is_locale_supported(language)
 
 
@@ -381,7 +414,7 @@ _ALEXANDRIA = _JSONEngine(
     features=_Features.SITE,
     url="https://api.alexandria.org",
     params={"a": "1", "c": "a"},
-    result_path=jsonpath_ng.ext.parse("results[*]"),
+    result_path=jsonpath_ng.parse("results[*]"),
     title_path=jsonpath_ng.parse("title"),
     url_path=jsonpath_ng.parse("url"),
     text_path=jsonpath_ng.parse("snippet"),

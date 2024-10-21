@@ -29,4 +29,4 @@ class AnswerResult(NamedTuple):
     url: Url
 
 
-Result = WebResult | ImageResult | AnswerResult
+type Result = WebResult | ImageResult | AnswerResult
