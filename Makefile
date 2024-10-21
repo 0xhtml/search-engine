@@ -1,37 +1,44 @@
-.PHONY: build run test extract-locales update-locales
-
 SEARXNG:=searxng/dist/searxng-$(shell cd searxng && python -c 'from searx import version; print(version.VERSION_TAG)')-py3-none-any.whl
-LOCALES:=$(patsubst %.po, %.mo, $(wildcard locales/*/LC_MESSAGES/*.po))
+LOCALES:=$(patsubst %.po,%.mo,$(wildcard locales/*/LC_MESSAGES/*.po))
 
+.PHONY: build
 build: $(LOCALES) static/style.css static/htmx.min.js env domains.txt
 
+.PHONY: run
 run: build
 	env/bin/uvicorn searchengine:app --reload
 
-test: env
+.PHONY: test
+test: env/dev build
 	env/bin/python -m pytest tests
 
+.PHONY: extract-locales
 extract-locales: env
 	env/bin/pybabel extract -F locales/babel.cfg -o locales/messages.pot .
 
+.PHONY: update-locales
 update-locales: env
-	env/bin/pybabel update -i locales/messages.pot -d locales
+	env/bin/pybabel update -d locales -i locales/messages.pot
 
-%.mo: %.po
-	env/bin/pybabel compile -i $< -o $@
+$(LOCALES)&: $(patsubst %.mo,%.po,$(LOCALES)) | env
+	env/bin/pybabel compile -d locales
 
-static/style.css: scss/*.scss
-	sass -s compressed --embed-source-map scss/style.scss:static/style.css
+static/%.css: scss/%.scss scss/*.scss
+	sass -s compressed $<:$@
 
 static/htmx.min.js:
-	wget https://unpkg.com/htmx.org@2.0.2/dist/$(@F) -O $@
+	wget https://unpkg.com/htmx.org@2.0.2/dist/htmx.min.js -O static/htmx.min.js
 
 env: requirements.txt $(SEARXNG)
 	(test -d env && touch env) || python -m venv env
-	env/bin/pip install -r requirements.txt $(SEARXNG)
+	env/bin/pip install $(patsubst %.txt,-r %.txt,$?)
+
+env/dev: dev-requirements.txt | env
+	env/bin/pip install $(patsubst %.txt,-r %.txt,$?)
+	touch env/dev
 
 $(SEARXNG):
 	cd searxng && ./manage py.build
 
 domains.txt:
-	(wget -O- https://raw.githubusercontent.com/rimu/no-qanon/master/domains.txt && wget -O- https://raw.githubusercontent.com/quenhus/uBlock-Origin-dev-filter/main/dist/other_format/domains/global.txt) > domains.txt || rm domains.txt
+	(wget -O- https://raw.githubusercontent.com/rimu/no-qanon/master/domains.txt && wget -O- https://raw.githubusercontent.com/quenhus/uBlock-Origin-dev-filter/main/dist/other_format/domains/global.txt) > domains.txt || (rm domains.txt && false)
