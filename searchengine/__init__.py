@@ -24,15 +24,17 @@ from .results import Result
 from .sha import gen_sha
 from .template_filter import TEMPLATE_FILTER_MAP
 
-_ = gettext.translation("msg", "locales", fallback=True).gettext
+_TRANSLATION = gettext.translation("messages", "locales", fallback=True)
+_TRANSLATION.install()
 
 _ENV = jinja2.Environment(
     autoescape=True,
     loader=jinja2.FileSystemLoader("templates"),
     lstrip_blocks=True,
     trim_blocks=True,
+    extensions=["jinja2.ext.i18n"],
 )
-_ENV.globals["_"] = _
+_ENV.install_gettext_translations(_TRANSLATION)
 _ENV.globals["SearchMode"] = SearchMode
 _ENV.filters.update(TEMPLATE_FILTER_MAP)
 

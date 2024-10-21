@@ -1,0 +1,77 @@
+# Translations template for PROJECT.
+# Copyright (C) 2024 ORGANIZATION
+# This file is distributed under the same license as the PROJECT project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2024.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PROJECT VERSION\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2024-10-21 02:15+0200\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.16.0\n"
+
+#: searchengine/__init__.py:70 searchengine/__init__.py:81
+#: templates/error.html:5 templates/results.html:28
+msgid "Error"
+msgstr ""
+
+#: searchengine/__init__.py:91
+msgid "The requested page was not not found"
+msgstr ""
+
+#: searchengine/__init__.py:99 templates/form.html:10
+msgid "Search"
+msgstr ""
+
+#: searchengine/__init__.py:108
+msgid "No search term was received"
+msgstr ""
+
+#: searchengine/__init__.py:110
+msgid "The search term is empty"
+msgstr ""
+
+#: searchengine/__init__.py:115
+msgid "Invalid search mode"
+msgstr ""
+
+#: searchengine/__init__.py:120
+msgid "Invalid page number"
+msgstr ""
+
+#: templates/base.html:2
+msgid "en"
+msgstr ""
+
+#: templates/base.html:5 templates/base.html:9 templates/htmx.html:1
+#: templates/opensearch.xml:3
+msgid "Websearch"
+msgstr ""
+
+#: templates/base.html:8 templates/opensearch.xml:4
+msgid "A (meta) search engine"
+msgstr ""
+
+#: templates/form.html:8
+msgid "Search the web..."
+msgstr ""
+
+#: templates/search.html:9
+msgid "Web"
+msgstr ""
+
+#: templates/search.html:9
+msgid "Images"
+msgstr ""
+
+#: templates/search.html:9
+msgid "Scholar"
+msgstr ""
+

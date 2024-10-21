@@ -1,4 +1,4 @@
-.PHONY: build run test
+.PHONY: build run test extract-locales update-locales
 
 SEARXNG:=searxng/dist/searxng-$(shell cd searxng && python -c 'from searx import version; print(version.VERSION_TAG)')-py3-none-any.whl
 LOCALES:=$(patsubst %.po, %.mo, $(wildcard locales/*/LC_MESSAGES/*.po))
@@ -11,8 +11,14 @@ run: build
 test: env
 	env/bin/python -m pytest tests
 
+extract-locales: env
+	env/bin/pybabel extract -F locales/babel.cfg -o locales/messages.pot .
+
+update-locales: env
+	env/bin/pybabel update -i locales/messages.pot -d locales
+
 %.mo: %.po
-	msgfmt -o $@ $<
+	env/bin/pybabel compile -i $< -o $@
 
 static/style.css: scss/*.scss
 	sass -s compressed --embed-source-map scss/style.scss:static/style.css
