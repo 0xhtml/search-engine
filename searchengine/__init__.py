@@ -11,7 +11,7 @@ import curl_cffi
 import jinja2
 from curl_cffi.requests import AsyncSession
 from starlette.applications import Starlette
-from starlette.datastructures import QueryParams
+from starlette.exceptions import HTTPException
 from starlette.requests import Request
 from starlette.responses import HTMLResponse, Response
 from starlette.routing import Mount, Route
@@ -58,40 +58,31 @@ async def _lifespan(app: Starlette) -> AsyncIterator[_State]:
         yield {"session": session}
 
 
-class _HTMLError(Exception):
-    def __init__(self, message: str, status_code: int = 200) -> None:
-        self.message = message
-        self.status_code = status_code
-
-    def response(self, request: Request) -> Response:
-        if "HX-Request" in request.headers:
-            return _TEMPLATES.TemplateResponse(
-                request,
-                "error.html",
-                {
-                    "base": "htmx.html",
-                    "title": _("Error"),
-                    "error_message": self.message,
-                },
-                headers={"HX-Retarget": "#target", "HX-Reswap": "outerHTML"},
-            )
-        if "text/html" in request.headers.get("Accept", ""):
-            return _TEMPLATES.TemplateResponse(
-                request,
-                "error.html",
-                {
-                    "base": "base.html",
-                    "title": _("Error"),
-                    "error_message": self.message,
-                },
-                self.status_code,
-            )
-        return Response(self.message, self.status_code, media_type="text/plain")
-
-
-def page_not_found(request: Request, exception: Exception) -> Response:
-    """Return 404 error page."""
-    return _HTMLError(_("The requested page was not not found"), 404).response(request)
+def http_exception(request: Request, exc: HTTPException) -> Response:
+    """Handle HTTP exceptions."""
+    if "HX-Request" in request.headers:
+        return _TEMPLATES.TemplateResponse(
+            request,
+            "error.html",
+            {
+                "base": "htmx.html",
+                "title": _("Error"),
+                "error_message": exc.detail,
+            },
+            headers={"HX-Retarget": "#target", "HX-Reswap": "outerHTML"},
+        )
+    if "text/html" in request.headers.get("Accept", ""):
+        return _TEMPLATES.TemplateResponse(
+            request,
+            "error.html",
+            {
+                "base": "base.html",
+                "title": _("Error"),
+                "error_message": exc.detail,
+            },
+            exc.status_code,
+        )
+    return Response(exc.detail, exc.status_code, media_type="text/plain")
 
 
 def index(request: Request) -> HTMLResponse:
@@ -104,33 +95,30 @@ def index(request: Request) -> HTMLResponse:
     )
 
 
-def _parse_params(params: QueryParams) -> tuple[str, SearchMode, int]:
+def _parse_params(request: Request) -> tuple[str, SearchMode, int]:
     try:
-        query = params["q"].strip()
+        query = request.query_params["q"].strip()
     except KeyError as e:
-        raise _HTMLError(_("No search term was received"), 400) from e
+        raise HTTPException(400, _("No search term was received")) from e
     if not query:
-        raise _HTMLError(_("The search term is empty"), 400)
+        raise HTTPException(400, _("The search term is empty"))
 
     try:
-        mode = SearchMode(params["mode"])
+        mode = SearchMode(request.query_params["mode"])
     except (ValueError, KeyError) as e:
-        raise _HTMLError(_("Invalid search mode"), 400) from e
+        raise HTTPException(400, _("Invalid search mode")) from e
 
     try:
-        page = int(params["page"])
+        page = int(request.query_params["page"])
     except (ValueError, KeyError) as e:
-        raise _HTMLError(_("Invalid page number"), 400) from e
+        raise HTTPException(400, _("Invalid page number")) from e
 
     return query, mode, page
 
 
 def search(request: Request) -> Response:
     """Perform a search and return the search result page."""
-    try:
-        query, mode, page = _parse_params(request.query_params)
-    except _HTMLError as e:
-        return e.response(request)
+    query, mode, page = _parse_params(request)
 
     return _TEMPLATES.TemplateResponse(
         request,
@@ -172,10 +160,7 @@ async def _engine_search(
 
 async def results(request: Request) -> Response:
     """Perform a search and return the search result page."""
-    try:
-        query, mode, page = _parse_params(request.query_params)
-    except _HTMLError as e:
-        return e.response(request)
+    query, mode, page = _parse_params(request)
 
     parsed_query = _QUERY_PARSER.parse_query(
         query, request.headers.get("Accept-Language", "")
@@ -243,25 +228,23 @@ async def img(request: Request) -> Response:
     """Proxy an image."""
     url = request.query_params.get("url", None)
     if url is None:
-        return _HTMLError("Not Found", 404).response(request)
+        raise HTTPException(404, "Not Found")
 
     sha = request.query_params.get("sha", None)
     if sha is None or gen_sha(url) != sha:
-        return _HTMLError("Unauthorized", 401).response(request)
+        raise HTTPException(401, "Unauthorized")
 
     async with AsyncSession(impersonate="chrome") as session:
         try:
             resp = await session.get(url, headers={"Accept": "image/*"})
         except curl_cffi.CurlError as e:
-            return _HTMLError(str(e), 500).response(request)
+            raise HTTPException(500, str(e)) from e
 
     if not (200 <= resp.status_code < 300):
-        return _HTMLError(
-            f"{resp.status_code} {resp.reason}", resp.status_code
-        ).response(request)
+        raise HTTPException(resp.status_code, resp.reason)
 
     if not resp.headers.get("Content-Type", "").startswith("image/"):
-        return _HTMLError("Not an image", 500).response(request)
+        raise HTTPException(500, "Not an image")
 
     return Response(
         content=resp.content,
@@ -287,5 +270,5 @@ app = Starlette(
         Route("/opensearch.xml", endpoint=opensearch),
         Mount("/static", app=StaticFiles(directory="static"), name="static"),
     ],
-    exception_handlers={404: page_not_found},
+    exception_handlers={HTTPException: http_exception},
 )
