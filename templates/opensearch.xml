@@ -3,7 +3,7 @@
     <ShortName>{{ _("Websearch") }}</ShortName>
     <Description>{{ _("A (meta) search engine") }}</Description>
     <InputEncoding>UTF-8</InputEncoding>
-    <Url type="text/html" template="{{ url_for("search") }}?q={searchTerms}"/>
+    <Url type="text/html" template="{{ url_for("search") }}?q={searchTerms}&amp;{{ {"mode": SearchMode.WEB.value, "page": 1} | urlencode }}"/>
     <Url type="application/x-suggestions+json" template="https://duckduckgo.com/ac/?q={searchTerms}&amp;type=list"/>
     <moz:SearchForm>{{ url_for("index") }}</moz:SearchForm>
 </OpenSearchDescription>
