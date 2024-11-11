@@ -126,15 +126,12 @@ class RatedResult:
         return self.rating < other.rating
 
 
-def rate_results(
-    results: list[tuple[Engine, list[Result]]],
-    lang: str,
-) -> set[RatedResult]:
+def rate_results(results: dict[Engine, list[Result]], lang: str) -> set[RatedResult]:
     """Combine results from all engines and rate them."""
     rated_results: set[RatedResult] = set()
 
-    for engine, engine_results in results:
-        for i, result in enumerate(engine_results[:MAX_RESULTS]):
+    for engine, result_list in results.items():
+        for i, result in enumerate(result_list[:MAX_RESULTS]):
             for rated_result in rated_results:
                 if rated_result.update(result, i, engine):
                     break

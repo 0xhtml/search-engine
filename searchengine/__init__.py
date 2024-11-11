@@ -2,8 +2,8 @@
 
 import asyncio
 import contextlib
+import contextvars
 import gettext
-import traceback
 from typing import TYPE_CHECKING, AsyncIterator, TypedDict
 
 import aiocache
@@ -24,6 +24,7 @@ from .rate import MAX_RESULTS, rate_results
 from .results import Result
 from .sha import gen_sha
 from .template_filter import TEMPLATE_FILTER_MAP
+from .utils import timed, timed_wait
 
 _TRANSLATION = gettext.translation("messages", "locales", fallback=True)
 _TRANSLATION.install()
@@ -46,6 +47,8 @@ _TEMPLATES = Jinja2Templates(env=_ENV)
 _QUERY_PARSER = QueryParser()
 
 _MAX_AGE = 60 * 60
+
+_CTX_ENGINE = contextvars.ContextVar("engine")
 
 
 class _State(TypedDict):
@@ -137,25 +140,13 @@ def search(request: Request) -> Response:
     )
 
 
-class _EngineError(Exception):
-    def __init__(self, engine: Engine, exc: BaseException) -> None:
-        self.engine = engine
-        self.exc = exc
-
-    def __str__(self) -> str:
-        return f"{self.engine}: {traceback.format_exception_only(self.exc)[0]}"
-
-
 @aiocache.cached(noself=True, ttl=_MAX_AGE)
+@timed
 async def _engine_search(
     state: _State, engine: Engine, query: ParsedQuery, page: int
-) -> tuple[Engine, list[Result]]:
-    try:
-        return engine, await engine.search(state.session, query, page)  # type: ignore[attr-defined]
-    except BaseException as e:
-        if not isinstance(e, asyncio.CancelledError):
-            traceback.print_exc()
-        raise _EngineError(engine, e) from e
+) -> list[Result]:
+    _CTX_ENGINE.set(engine)
+    return await engine.search(state.session, query, page)  # type: ignore[attr-defined]
 
 
 async def results(request: Request) -> Response:
@@ -167,38 +158,35 @@ async def results(request: Request) -> Response:
     )
 
     engines = get_engines(parsed_query, mode, page)
-    important_engines = {engine for engine in engines if engine.weight > 1}
 
-    errors = set()
-    results = []
+    results = {}
+    errors = {}
 
-    tasks = {
-        asyncio.create_task(_engine_search(request.state, engine, parsed_query, page))
-        for engine in engines
-    }
-
-    while tasks:
-        done, tasks = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
-        for task in done:
-            try:
-                results.append(task.result())
-            except _EngineError as e:
-                errors.add(e)
-        if (
-            {engine for engine, engine_results in results}
-            | {error.engine for error in errors}
-        ) >= important_engines:
-            break
-
-    if tasks:
-        await asyncio.wait(tasks, timeout=0.5)
-
-    for task in tasks:
-        task.cancel()
-        try:
-            results.append(await task)
-        except _EngineError as e:
-            errors.add(e)
+    max_time = await timed_wait(
+        {
+            asyncio.create_task(
+                _engine_search(request.state, engine, parsed_query, page)
+            )
+            for engine in engines
+            if engine.weight > 1
+        },
+        _CTX_ENGINE,
+        results,
+        errors,
+    )
+    await timed_wait(
+        {
+            asyncio.create_task(
+                _engine_search(request.state, engine, parsed_query, page)
+            )
+            for engine in engines
+            if engine.weight <= 1
+        },
+        _CTX_ENGINE,
+        results,
+        errors,
+        max(1.33, max_time) * 0.5,
+    )
 
     rated_results = list(rate_results(results, parsed_query.lang))
     rated_results.sort(reverse=True)

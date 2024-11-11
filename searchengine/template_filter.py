@@ -1,5 +1,6 @@
 """Module containing filter functions for the templates."""
 
+import traceback
 from typing import Any
 from urllib.parse import unquote, urlencode
 
@@ -58,8 +59,13 @@ def _proxy(ctx: dict[str, Any], url: Url) -> str:
     )
 
 
+def _pretty_exc(exc: Exception) -> str:
+    return traceback.format_exception_only(exc)[0]
+
+
 TEMPLATE_FILTER_MAP = {
     "highlight": _highlight,
     "pretty_url": _pretty_url,
     "proxy": _proxy,
+    "pretty_exc": _pretty_exc,
 }
