@@ -9,7 +9,7 @@ from abc import ABC, abstractmethod
 from enum import Flag, auto
 from html import unescape
 from types import ModuleType
-from typing import Any, Literal, Optional, TypedDict
+from typing import Literal, Optional, TypedDict
 from urllib.parse import urlencode, urljoin
 
 import jsonpath_ng
@@ -258,46 +258,40 @@ class _XPathEngine(_CstmEngine[etree.XPath, html.HtmlElement]):
 
     @staticmethod
     def _iter(root: html.HtmlElement, path: etree.XPath) -> list[html.HtmlElement]:
-        elems = path(root)
-        assert isinstance(elems, list)
-        return elems
+        return path(root)
 
     @staticmethod
     def _get(root: html.HtmlElement, path: Optional[etree.XPath]) -> str:
         if path is None or not (elems := path(root)):
             return ""
-        assert isinstance(elems, list)
         if isinstance(elems[0], str):
             return elems[0]
-        result = html.tostring(
+        return html.tostring(
             elems[0],
             encoding="unicode",
             method="text",
             with_tail=False,
         )
-        assert isinstance(result, str)
-        return result
 
 
-class _JSONEngine(_CstmEngine[jsonpath_ng.JSONPath, dict[str, Any]]):
+class _JSONEngine(_CstmEngine[jsonpath_ng.JSONPath, jsonpath_ng.DatumInContext]):
     @staticmethod
-    def _parse_response(response: Response) -> dict[str, Any]:
-        result = response.json()
-        assert isinstance(result, dict)
-        return result
+    def _parse_response(response: Response) -> jsonpath_ng.DatumInContext:
+        return jsonpath_ng.Root().find(response.json())
 
     @staticmethod
-    def _iter(root: dict[str, Any], path: jsonpath_ng.JSONPath) -> list[dict[str, Any]]:
-        elems = path.find(root)
-        return [elem.value for elem in elems]
+    def _iter(
+        root: jsonpath_ng.DatumInContext, path: jsonpath_ng.JSONPath
+    ) -> list[jsonpath_ng.DatumInContext]:
+        return path.find(root)
 
     @staticmethod
-    def _get(root: dict[str, Any], path: Optional[jsonpath_ng.JSONPath]) -> str:
+    def _get(
+        root: jsonpath_ng.DatumInContext, path: Optional[jsonpath_ng.JSONPath]
+    ) -> str:
         if path is None or not (elems := path.find(root)):
             return ""
-        result = elems[0].value
-        assert isinstance(result, str)
-        return result
+        return elems[0].value
 
 
 class _SearxEngine(Engine):
