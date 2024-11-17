@@ -18,7 +18,8 @@ import searx
 import searx.data
 import searx.enginelib
 import searx.engines
-from curl_cffi.requests import AsyncSession, HttpMethod, Response
+from curl_cffi.requests import AsyncSession, Response
+from curl_cffi.requests.session import HttpMethod
 from lxml import etree, html
 
 from .query import ParsedQuery, SearchMode
