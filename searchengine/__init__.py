@@ -2,8 +2,8 @@
 
 import asyncio
 import contextlib
-import contextvars
 import gettext
+import traceback
 from typing import TYPE_CHECKING, AsyncIterator, TypedDict
 
 import aiocache
@@ -24,7 +24,7 @@ from .rate import MAX_RESULTS, rate_results
 from .results import Result
 from .sha import gen_sha
 from .template_filter import TEMPLATE_FILTER_MAP
-from .utils import timed, timed_wait
+from .utils import timed
 
 _TRANSLATION = gettext.translation("messages", "locales", fallback=True)
 _TRANSLATION.install()
@@ -47,8 +47,6 @@ _TEMPLATES = Jinja2Templates(env=_ENV)
 _QUERY_PARSER = QueryParser()
 
 _MAX_AGE = 60 * 60
-
-_CTX_ENGINE = contextvars.ContextVar("engine")
 
 
 class _State(TypedDict):
@@ -145,7 +143,6 @@ def search(request: Request) -> Response:
 async def _engine_search(
     state: _State, engine: Engine, query: ParsedQuery, page: int
 ) -> list[Result]:
-    _CTX_ENGINE.set(engine)
     return await engine.search(state.session, query, page)  # type: ignore[attr-defined]
 
 
@@ -162,31 +159,28 @@ async def results(request: Request) -> Response:
     results = {}
     errors = {}
 
-    max_time = await timed_wait(
-        {
-            asyncio.create_task(
-                _engine_search(request.state, engine, parsed_query, page)
-            )
-            for engine in engines
-            if engine.weight > 1
-        },
-        _CTX_ENGINE,
-        results,
-        errors,
-    )
-    await timed_wait(
-        {
-            asyncio.create_task(
-                _engine_search(request.state, engine, parsed_query, page)
-            )
-            for engine in engines
-            if engine.weight <= 1
-        },
-        _CTX_ENGINE,
-        results,
-        errors,
-        max(1.33, max_time) * 0.5,
-    )
+    tasks = {
+        asyncio.create_task(
+            _engine_search(request.state, engine, parsed_query, page)
+        ): engine
+        for engine in engines
+    }
+
+    prio_tasks = {task for task, engine in tasks.items() if engine.weight > 1}
+    await asyncio.wait(prio_tasks)
+    max_time = max(task.result()[1] for task in prio_tasks)
+
+    await asyncio.wait(tasks.keys(), timeout=max(max_time * 0.5, 1 - max_time))
+    for task, engine in tasks.items():
+        if task.done():
+            if (exc := task.exception()) is None:
+                results[engine] = task.result()[0]
+            else:
+                traceback.print_exc(exc)
+                errors[engine] = exc
+        else:
+            task.cancel()
+            errors[engine] = TimeoutError()
 
     rated_results = list(rate_results(results, parsed_query.lang))
     rated_results.sort(reverse=True)
