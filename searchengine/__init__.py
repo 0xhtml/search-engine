@@ -176,7 +176,7 @@ async def results(request: Request) -> Response:
             if (exc := task.exception()) is None:
                 results[engine] = task.result()[0]
             else:
-                traceback.print_exc(exc)
+                traceback.print_exception(exc)
                 errors[engine] = exc
         else:
             task.cancel()
