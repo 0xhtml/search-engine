@@ -2,8 +2,10 @@
 
 from . import importer  # isort: skip
 
+import asyncio
 import inspect
 import json
+import os
 import sys
 from abc import ABC, abstractmethod
 from enum import Flag, auto
@@ -12,6 +14,7 @@ from types import ModuleType
 from typing import Literal, Optional, TypedDict
 from urllib.parse import urlencode, urljoin
 
+import httpx
 import jsonpath_ng
 import jsonpath_ng.ext
 import searx
@@ -112,6 +115,20 @@ class Engine(ABC):
         """Check if the engine supports a query language."""
         return True
 
+    async def _metrics(self, count: int, status: int, start: float) -> None:
+        if "METRICS_URL" not in os.environ:
+            return
+        async with httpx.AsyncClient() as client:
+            await client.post(
+                os.environ["METRICS_URL"],
+                data={
+                    "engine": str(self),
+                    "result_count": count,
+                    "status": status,
+                    "time": asyncio.get_event_loop().time() - start,
+                },
+            )
+
     async def search(
         self,
         session: AsyncSession,
@@ -119,6 +136,8 @@ class Engine(ABC):
         page: int,
     ) -> list[Result]:
         """Perform a search and return the results."""
+        start = asyncio.get_event_loop().time()
+
         params = self._request(
             query,
             _Params(
@@ -143,11 +162,15 @@ class Engine(ABC):
         )
 
         if not (200 <= response.status_code < 300):
+            await self._metrics(0, response.status_code, start)
             raise StatusCodeError(response)
 
         response.search_params = params
         response.url = Url.parse(response.url)
-        return self._response(response)
+        results = self._response(response)
+
+        await self._metrics(len(results), response.status_code, start)
+        return results
 
     def __str__(self) -> str:
         """Return name of engine in PascalCase."""
