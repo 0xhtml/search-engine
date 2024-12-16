@@ -26,10 +26,6 @@ def _comparable_url(url: Url) -> Url:
     )
 
 
-class _InvalidResultTypeError(Exception):
-    pass
-
-
 class RatedResult:
     """Combined result with a rating and set of engines associated."""
 
@@ -38,6 +34,14 @@ class RatedResult:
         self.result = result
         self.rating = (MAX_RESULTS - position) * engine.weight
         self.engines = {engine}
+
+        if isinstance(result, WebResult | ImageResult):
+            self._text = result.title
+            if result.text is not None:
+                self._text += " " + result.text
+        else:
+            assert isinstance(result, AnswerResult)
+            self._text = result.answer
 
     def update(self, result: Result, position: int, engine: Engine) -> bool:
         """Update rated result by combining the result from another engine."""
@@ -79,23 +83,19 @@ class RatedResult:
             self.rating += (MAX_RESULTS - position) * engine.weight
             self.engines.add(engine)
 
+        assert self._text
+        self._text += " " + result.title
+        if result.text is not None:
+            self._text += " " + result.text
+
         return True
 
     def eval(self, lang: str) -> None:
         """Run additional result evaluation and update rating."""
-        if isinstance(self.result, WebResult | ImageResult):
-            text = self.result.title
-            if self.result.text is not None:
-                text += " " + self.result.text
-        elif isinstance(self.result, AnswerResult):
-            text = self.result.answer
-        else:
-            raise _InvalidResultTypeError
-
-        if lang != "zh" and regex.search(r"\p{Han}", text):
+        if lang != "zh" and regex.search(r"\p{Han}", self._text):
             self.rating *= 0.5
         else:
-            self.rating += 2 * is_lang(text, lang)
+            self.rating += 2 * is_lang(self._text, lang)
 
         host = self.result.url.host.removeprefix("www.")
         if host == "docs.python.org":
@@ -113,9 +113,8 @@ class RatedResult:
             return "web"
         if isinstance(self.result, ImageResult):
             return "image"
-        if isinstance(self.result, AnswerResult):
-            return "answer"
-        raise _InvalidResultTypeError
+        assert isinstance(self.result, AnswerResult)
+        return "answer"
 
     def __lt__(self, other: "RatedResult") -> bool:
         """Compare two rated results by rating."""
