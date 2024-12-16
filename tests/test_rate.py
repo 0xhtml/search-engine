@@ -4,7 +4,7 @@ import enum
 
 import pytest
 from searchengine.engines import Engine
-from searchengine.rate import MAX_RESULTS, RatedResult
+from searchengine.rate import RatedResult
 from searchengine.results import AnswerResult, ImageResult, Result, WebResult
 from searchengine.url import Url
 
@@ -31,8 +31,8 @@ _ENGINE2 = _Engine("engine2")
 
 
 class _Cmp(enum.Enum):
-    LT = (1, 0)
-    GT = (0, 1)
+    LT = (0, 1)
+    GT = (1, 0)
     EQ = (0, 0)
 
 
@@ -88,7 +88,7 @@ def test_rated_result_lt(
 )
 def test_rated_result_update(a: Result, b: Result, expected: bool) -> None:
     """Test the update method of the RatedResult class."""
-    result = RatedResult(a, MAX_RESULTS - 1, _ENGINE)
-    assert result.update(b, MAX_RESULTS - 2, _ENGINE2) == expected
+    result = RatedResult(a, 1, _ENGINE)
+    assert result.update(b, 2, _ENGINE2) == expected
     assert result.rating == (3 if expected else 1)
     assert result.engines == ({_ENGINE, _ENGINE2} if expected else {_ENGINE})

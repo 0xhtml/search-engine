@@ -437,15 +437,15 @@ _ALEXANDRIA = _JSONEngine(
     text_path=jsonpath_ng.parse("snippet"),
 )
 # TODO: check if bing does support quotation
-_BING = _SearxEngine("bing", weight=1.3, features=_Features.SITE)
-_BING_IMAGES = _SearxEngine("bing images", weight=1.3, features=_Features.SITE)
-_GOOGLE = _SearxEngine("google", weight=1.3, features=_Features.QUOTES | _Features.SITE)
+_BING = _SearxEngine("bing", weight=1.5, features=_Features.SITE)
+_BING_IMAGES = _SearxEngine("bing images", weight=1.5, features=_Features.SITE)
+_GOOGLE = _SearxEngine("google", weight=1.5, features=_Features.QUOTES | _Features.SITE)
 _GOOGLE_IMAGES = _SearxEngine(
-    "google images", weight=1.3, features=_Features.QUOTES | _Features.SITE
+    "google images", weight=1.5, features=_Features.QUOTES | _Features.SITE
 )
-_GOOGLE_SCHOLAR = _SearxEngine("google scholar", weight=1.3)
+_GOOGLE_SCHOLAR = _SearxEngine("google scholar", weight=1.5)
 _MOJEEK = _SearxEngine("mojeek", features=_Features.SITE)
-_REDDIT = _SearxEngine("reddit", weight=0.7, mode=SearchMode.WEB)
+_REDDIT = _SearxEngine("reddit", weight=0.25, mode=SearchMode.WEB)
 _RIGHT_DAO = _SearxEngine("right dao", features=_Features.QUOTES | _Features.SITE)
 _SESE = _JSONEngine(
     "sese",

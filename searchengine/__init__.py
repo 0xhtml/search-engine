@@ -20,7 +20,7 @@ from starlette.templating import Jinja2Templates
 
 from .engines import Engine, get_engines
 from .query import ParsedQuery, QueryParser, SearchMode
-from .rate import MAX_RESULTS, rate_results
+from .rate import rate_results
 from .results import Result
 from .sha import gen_sha
 from .template_filter import TEMPLATE_FILTER_MAP
@@ -182,9 +182,7 @@ async def results(request: Request) -> Response:
             task.cancel()
             errors[engine] = TimeoutError()
 
-    rated_results = list(rate_results(results, parsed_query.lang))
-    rated_results.sort(reverse=True)
-    del rated_results[MAX_RESULTS:]
+    rated_results = rate_results(results, parsed_query.lang)
 
     return _TEMPLATES.TemplateResponse(
         request,
