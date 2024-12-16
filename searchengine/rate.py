@@ -45,10 +45,6 @@ class RatedResult:
 
     def update(self, result: Result, position: int, engine: Engine) -> bool:
         """Update rated result by combining the result from another engine."""
-        if isinstance(result, WebResult) and not isinstance(self.result, WebResult):
-            return False
-        if isinstance(result, ImageResult) and not isinstance(self.result, ImageResult):
-            return False
         if isinstance(result, AnswerResult) or isinstance(self.result, AnswerResult):
             return False
         if _comparable_url(self.result.url) != _comparable_url(result.url):
@@ -56,18 +52,22 @@ class RatedResult:
 
         max_weight = max(e.weight for e in self.engines)
 
-        if result.text is not None and (
-            self.result.text is None or len(self.result.text) < len(result.text)
-        ):
+        if isinstance(self.result, ImageResult) and isinstance(result, WebResult):
+            self.result = WebResult(
+                self.result.title, self.result.url, self.result.text
+            )
+
+        if len(self.result.text or "") < len(result.text or ""):
             self.result = self.result._replace(text=result.text)
 
-        if (
-            (self.result.url.scheme != "https" and result.url.scheme == "https")
-            or engine.weight > max_weight
-            or (
-                engine.weight == max_weight
-                and len(str(self.result.url)) > len(str(result.url))
+        if result.url.scheme == "https" and self.result.url.scheme != "https":
+            self.result = self.result._replace(
+                url=self.result.url._replace(scheme="https")
             )
+
+        if engine.weight > max_weight or (
+            engine.weight == max_weight
+            and len(str(self.result.url)) > len(str(result.url))
         ):
             self.result = self.result._replace(url=result.url)
 
