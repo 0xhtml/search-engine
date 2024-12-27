@@ -1,7 +1,0 @@
-__pycache__/
-domains.txt
-env/
-locales/*/LC_MESSAGES/*.mo
-static/htmx.min.js
-static/*.css
-static/*.css.map
