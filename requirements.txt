@@ -2,8 +2,8 @@ aiocache==0.12.3
 httpx==0.24.1
 babel==2.16.0
 curl_cffi==0.7.3
-fasttext-predict==0.9.2.2
-Jinja2==3.1.4
+fasttext-predict==0.9.2.4
+Jinja2==3.1.5
 jsonpath-ng==1.7.0
 lxml==5.3.0
 MarkupSafe==3.0.1
