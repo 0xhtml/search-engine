@@ -4,6 +4,7 @@ import asyncio
 import contextlib
 import gettext
 import traceback
+from http import HTTPStatus
 from typing import TYPE_CHECKING, AsyncIterator, TypedDict
 
 import aiocache
@@ -220,7 +221,7 @@ async def img(request: Request) -> Response:
         except curl_cffi.CurlError as e:
             raise HTTPException(500, str(e)) from e
 
-    if not (200 <= resp.status_code < 300):
+    if not HTTPStatus(resp.status_code).is_success:
         raise HTTPException(resp.status_code, resp.reason)
 
     if not resp.headers.get("Content-Type", "").startswith("image/"):

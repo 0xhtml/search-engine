@@ -10,6 +10,7 @@ import sys
 from abc import ABC, abstractmethod
 from enum import Flag, auto
 from html import unescape
+from http import HTTPStatus
 from types import ModuleType
 from typing import Literal, Optional, TypedDict
 from urllib.parse import urlencode, urljoin
@@ -161,7 +162,7 @@ class Engine(ABC):
             cookies=params["cookies"],
         )
 
-        if not (200 <= response.status_code < 300):
+        if not HTTPStatus(response.status_code).is_success:
             await self._metrics(0, response.status_code, start)
             raise StatusCodeError(response)
 
