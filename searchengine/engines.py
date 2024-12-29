@@ -3,10 +3,8 @@
 from . import importer  # isort: skip
 
 import asyncio
-import inspect
 import json
 import os
-import sys
 from abc import ABC, abstractmethod
 from enum import Flag, auto
 from html import unescape
@@ -427,48 +425,49 @@ class _SearxEngine(Engine):
         return self._engine.traits.is_locale_supported(language)
 
 
-_ALEXANDRIA = _JSONEngine(
-    "alexandria",
-    features=_Features.SITE,
-    url="https://api.alexandria.org",
-    params={"a": "1", "c": "a"},
-    result_path=jsonpath_ng.parse("results[*]"),
-    title_path=jsonpath_ng.parse("title"),
-    url_path=jsonpath_ng.parse("url"),
-    text_path=jsonpath_ng.parse("snippet"),
-)
-# TODO: check if bing does support quotation
-_BING = _SearxEngine("bing", weight=1.5, features=_Features.SITE)
-_BING_IMAGES = _SearxEngine("bing images", weight=1.5, features=_Features.SITE)
-_GOOGLE = _SearxEngine("google", weight=1.5, features=_Features.QUOTES | _Features.SITE)
-_GOOGLE_IMAGES = _SearxEngine(
-    "google images", weight=1.5, features=_Features.QUOTES | _Features.SITE
-)
-_GOOGLE_SCHOLAR = _SearxEngine("google scholar", weight=1.5)
-_MOJEEK = _SearxEngine("mojeek", features=_Features.SITE)
-_REDDIT = _SearxEngine("reddit", weight=0.25, mode=SearchMode.WEB)
-_RIGHT_DAO = _SearxEngine("right dao", features=_Features.QUOTES | _Features.SITE)
-_SESE = _JSONEngine(
-    "sese",
-    features=_Features.SITE,
-    url="https://se-proxy.azurewebsites.net/api/search",
-    params={"slice": "0:12"},
-    result_path=jsonpath_ng.ext.parse("'结果'[?'信息'.'标题' != '']"),
-    url_path=jsonpath_ng.parse("'网址'"),
-    title_path=jsonpath_ng.parse("'信息'.'标题'"),
-    text_path=jsonpath_ng.parse("'信息'.'描述'"),
-)
-_STRACT = _SearxEngine("stract", features=_Features.QUOTES | _Features.SITE)
-_YEP = _SearxEngine("yep", features=_Features.SITE)
-_YEP_IMAGES = _SearxEngine("yep", mode=SearchMode.IMAGES, features=_Features.SITE)
+_ENGINES = {
+    _JSONEngine(
+        "alexandria",
+        features=_Features.SITE,
+        url="https://api.alexandria.org",
+        params={"a": "1", "c": "a"},
+        result_path=jsonpath_ng.parse("results[*]"),
+        title_path=jsonpath_ng.parse("title"),
+        url_path=jsonpath_ng.parse("url"),
+        text_path=jsonpath_ng.parse("snippet"),
+    ),
+    # TODO: check if bing does support quotation
+    _SearxEngine("bing", weight=1.5, features=_Features.SITE),
+    _SearxEngine("bing images", weight=1.5, features=_Features.SITE),
+    _SearxEngine("google", weight=1.5, features=_Features.QUOTES | _Features.SITE),
+    _SearxEngine(
+        "google images", weight=1.5, features=_Features.QUOTES | _Features.SITE
+    ),
+    _SearxEngine("google scholar", weight=1.5),
+    _SearxEngine("mojeek", features=_Features.SITE),
+    _SearxEngine("reddit", weight=0.25, mode=SearchMode.WEB),
+    _SearxEngine("right dao", features=_Features.QUOTES | _Features.SITE),
+    _JSONEngine(
+        "sese",
+        features=_Features.SITE,
+        url="https://se-proxy.azurewebsites.net/api/search",
+        params={"slice": "0:12"},
+        result_path=jsonpath_ng.ext.parse("'结果'[?'信息'.'标题' != '']"),
+        url_path=jsonpath_ng.parse("'网址'"),
+        title_path=jsonpath_ng.parse("'信息'.'标题'"),
+        text_path=jsonpath_ng.parse("'信息'.'描述'"),
+    ),
+    _SearxEngine("stract", features=_Features.QUOTES | _Features.SITE),
+    _SearxEngine("yep", features=_Features.SITE),
+    _SearxEngine("yep", mode=SearchMode.IMAGES, features=_Features.SITE),
+}
 
 
 def get_engines(query: ParsedQuery, mode: SearchMode, page: int) -> set[Engine]:
     """Return list of enabled engines for the language."""
     return {
         engine
-        for _, engine in inspect.getmembers(sys.modules[__name__])
-        if isinstance(engine, Engine)
+        for engine in _ENGINES
         if engine.mode == mode
         if engine.supports_language(query.lang)
         if _Features.required(query, page) in engine.features
