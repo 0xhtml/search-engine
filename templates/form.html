@@ -3,7 +3,7 @@
 {% block content %}
 {% block before %}
 {% endblock %}
-<form action="{{ url_for("results") }}" hx-get="{{ url_for("search") }}" hx-target="body" hx-push-url="true" hx-on::send-error="this.submit()" hx-on::response-error="this.submit()">
+<form action="{{ url_for("results") }}" hx-get="{{ url_for("search") }}" hx-target="body" hx-push-url="true" hx-on::send-error="this.setAttribute('action',this.getAttribute('hx-get'));this.submit()">
     <div class="search">
         <input type="search" name="q" placeholder="{{ _("Search the web...") }}" value="{{ query }}" required>
         <input type="reset" value="&times;" onclick="event.preventDefault();document.getElementsByName('q')[0].value=''">
