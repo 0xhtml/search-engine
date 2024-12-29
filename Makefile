@@ -30,11 +30,12 @@ static/htmx.min.js:
 	wget https://unpkg.com/htmx.org@2.0.2/dist/htmx.min.js -O static/htmx.min.js
 
 env: requirements.txt $(SEARXNG)
-	(test -d env && touch env) || python -m venv env
-	env/bin/pip install $(patsubst %.txt,-r %.txt,$?)
+	rm -rf env
+	python -m venv env || (rm -r env && false)
+	env/bin/pip install $(patsubst %.txt,-r %.txt,$?) || (rm -r env && false)
 
 env/dev: dev-requirements.txt | env
-	env/bin/pip install $(patsubst %.txt,-r %.txt,$?)
+	env/bin/pip install $(patsubst %.txt,-r %.txt,$?) || (rm -r env && false)
 	touch env/dev
 
 $(SEARXNG):
