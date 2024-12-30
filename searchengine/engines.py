@@ -426,16 +426,7 @@ class _SearxEngine(Engine):
 
 
 _ENGINES = {
-    _JSONEngine(
-        "alexandria",
-        features=_Features.SITE,
-        url="https://api.alexandria.org",
-        params={"a": "1", "c": "a"},
-        result_path=jsonpath_ng.parse("results[*]"),
-        title_path=jsonpath_ng.parse("title"),
-        url_path=jsonpath_ng.parse("url"),
-        text_path=jsonpath_ng.parse("snippet"),
-    ),
+    _SearxEngine("alexandria", features=_Features.SITE),
     # TODO: check if bing does support quotation
     _SearxEngine("bing", weight=1.5, features=_Features.SITE),
     _SearxEngine("bing images", weight=1.5, features=_Features.SITE),
