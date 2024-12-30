@@ -32,10 +32,10 @@ static/htmx.min.js:
 env: requirements.txt $(SEARXNG)
 	rm -rf env
 	python -m venv env || (rm -r env && false)
-	env/bin/pip install $(patsubst %.txt,-r %.txt,$?) || (rm -r env && false)
+	env/bin/pip install $(patsubst %.txt,-r %.txt,$^) || (rm -r env && false)
 
-env/dev: dev-requirements.txt | env
-	env/bin/pip install $(patsubst %.txt,-r %.txt,$?) || (rm -r env && false)
+env/dev: dev-requirements.txt env
+	env/bin/pip install -r dev-requirements.txt || (rm -r env && false)
 	touch env/dev
 
 $(SEARXNG):
