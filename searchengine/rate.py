@@ -1,5 +1,7 @@
 """Module for rating results."""
 
+import heapq
+
 import regex
 
 from .engines import Engine
@@ -140,4 +142,4 @@ def rate_results(results: dict[Engine, list[Result]], lang: str) -> list[RatedRe
     for rated_result in rated_results:
         rated_result.eval(lang)
 
-    return sorted(rated_results, reverse=True)[:12]
+    return heapq.nlargest(12, rated_results)
