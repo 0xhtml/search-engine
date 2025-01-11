@@ -6,4 +6,6 @@
     <Url type="text/html" template="{{ url_for("search") }}?q={searchTerms}&amp;{{ {"mode": SearchMode.WEB.value, "page": 1} | urlencode }}"/>
     <Url type="application/x-suggestions+json" template="https://duckduckgo.com/ac/?q={searchTerms}&amp;type=list"/>
     <moz:SearchForm>{{ url_for("index") }}</moz:SearchForm>
+    <Image width="16" height="16" type="image/x-icon">{{ url_for("static", path="favicon-16x16.ico") }}</Image>
+    <Image width="64" height="64" type="image/png">{{ url_for("static", path="favicon-64x64.png") }}</Image>
 </OpenSearchDescription>

@@ -4,6 +4,10 @@
         <meta charset="utf-8">
         <title>{{ title }} &ndash; {{ _("Websearch") }}</title>
         <link rel="stylesheet" href="{{ url_for("static", path="style.css") }}">
+        <link rel="icon" type="image/png" href="{{ url_for("static", path="favicon-64x64.png") }}" sizes="64x64">
+        <link rel="icon" type="image/svg+xml" href="{{ url_for("static", path="favicon.svg") }}">
+        <link rel="icon" href="{{ url_for("static", path="favicon.ico") }}">
+        <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for("static", path="apple-touch-icon.png") }}" />
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="description" content="{{ _("A (meta) search engine") }}">
         <link rel="search" type="application/opensearchdescription+xml" title="{{ _("Websearch") }}" href="{{ url_for("opensearch") }}">
