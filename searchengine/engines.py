@@ -102,6 +102,11 @@ class Engine(ABC):
         else:
             print(f"[!] [{self}] [{tag}] {msg}")
 
+    @property
+    @abstractmethod
+    def url(self) -> str:
+        """Return URL of the engine."""
+
     @abstractmethod
     def _request(self, query: ParsedQuery, params: _Params) -> _Params:
         pass
@@ -217,6 +222,10 @@ class _CstmEngine[Path, Element](Engine):
             features=features,
             method=method,
         )
+
+    @property
+    def url(self) -> str:
+        return self._url
 
     @staticmethod
     @abstractmethod
@@ -358,6 +367,10 @@ class _SearxEngine(Engine):
             method=method,
         )
 
+    @property
+    def url(self) -> str:
+        return self._engine.about["website"]
+
     def _request(self, query: ParsedQuery, params: _Params) -> _Params:
         return self._engine.request(str(query), params)  # type: ignore[no-any-return]
 
@@ -461,5 +474,11 @@ def get_engines(query: ParsedQuery, mode: SearchMode, page: int) -> set[Engine]:
         for engine in _ENGINES
         if engine.mode == mode
         if engine.supports_language(query.lang)
-        if _Features.required(query, page) in engine.features
+        if _Features.required(query, page)
+        in engine.features
+        | (
+            _Features.SITE
+            if query.site == Url.parse(engine.url).netloc.removeprefix("www.")
+            else _Features(0)
+        )
     }
