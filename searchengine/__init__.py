@@ -20,6 +20,7 @@ from starlette.staticfiles import StaticFiles
 from starlette.templating import Jinja2Templates
 
 from .engines import Engine, get_engines
+from .metrics import metric_errors, metric_success
 from .query import ParsedQuery, QueryParser, SearchMode
 from .rate import rate_results
 from .results import Result
@@ -175,13 +176,17 @@ async def results(request: Request) -> Response:
     for task, engine in tasks.items():
         if task.done():
             if (exc := task.exception()) is None:
-                results[engine] = task.result()[0]
+                engine_results, time = task.result()
+                metric_success(engine, len(engine_results), time)
+                results[engine] = engine_results
             else:
                 traceback.print_exception(exc)
                 errors[engine] = exc
         else:
             task.cancel()
             errors[engine] = TimeoutError()
+
+    metric_errors(errors)
 
     rated_results = rate_results(results, parsed_query.lang)
 

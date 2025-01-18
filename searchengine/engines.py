@@ -4,7 +4,6 @@ from . import importer  # isort: skip
 
 import asyncio
 import json
-import os
 from abc import ABC, abstractmethod
 from enum import Flag, auto
 from html import unescape
@@ -13,7 +12,6 @@ from types import ModuleType
 from typing import Literal, Optional, TypedDict
 from urllib.parse import urlencode, urljoin
 
-import httpx
 import jsonpath_ng
 import jsonpath_ng.ext
 import searx
@@ -119,20 +117,6 @@ class Engine(ABC):
         """Check if the engine supports a query language."""
         return True
 
-    async def _metrics(self, count: int, status: int, start: float) -> None:
-        if "METRICS_URL" not in os.environ:
-            return
-        async with httpx.AsyncClient() as client:
-            await client.post(
-                os.environ["METRICS_URL"],
-                data={
-                    "engine": str(self),
-                    "result_count": count,
-                    "status": status,
-                    "time": asyncio.get_event_loop().time() - start,
-                },
-            )
-
     async def search(
         self,
         session: AsyncSession,
@@ -166,15 +150,11 @@ class Engine(ABC):
         )
 
         if not HTTPStatus(response.status_code).is_success:
-            await self._metrics(0, response.status_code, start)
             raise StatusCodeError(response)
 
         response.search_params = params
         response.url = Url.parse(response.url)
-        results = self._response(response)
-
-        await self._metrics(len(results), response.status_code, start)
-        return results
+        return self._response(response)
 
     def __str__(self) -> str:
         """Return name of engine in PascalCase."""
