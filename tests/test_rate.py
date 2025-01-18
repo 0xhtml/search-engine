@@ -25,6 +25,9 @@ class _Engine(Engine):
     def _response(self):
         pass
 
+    def url(self):
+        pass
+
 
 _ENGINE = _Engine("engine")
 _ENGINE2 = _Engine("engine2")
