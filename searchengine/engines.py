@@ -124,8 +124,6 @@ class Engine(ABC):
         page: int,
     ) -> list[Result]:
         """Perform a search and return the results."""
-        start = asyncio.get_event_loop().time()
-
         params = self._request(
             query,
             _Params(

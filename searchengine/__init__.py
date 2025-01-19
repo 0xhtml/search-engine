@@ -1,13 +1,11 @@
 """Custom (meta) search engine."""
 
-import asyncio
 import contextlib
 import gettext
-import traceback
+from collections.abc import AsyncIterator
 from http import HTTPStatus
-from typing import TYPE_CHECKING, AsyncIterator, TypedDict
+from typing import TYPE_CHECKING, TypedDict
 
-import aiocache
 import curl_cffi
 import jinja2
 from curl_cffi.requests import AsyncSession
@@ -19,14 +17,10 @@ from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 from starlette.templating import Jinja2Templates
 
-from .engines import Engine, get_engines
-from .metrics import metric_errors, metric_success
-from .query import ParsedQuery, QueryParser, SearchMode
-from .rate import rate_results
-from .results import Result
+from .query import QueryParser, SearchMode
+from .search import MAX_AGE, perform_search
 from .sha import gen_sha
 from .template_filter import TEMPLATE_FILTER_MAP
-from .utils import timed
 
 _TRANSLATION = gettext.translation("messages", "locales", fallback=True)
 _TRANSLATION.install()
@@ -47,8 +41,6 @@ _ENV.filters.update(TEMPLATE_FILTER_MAP)
 _TEMPLATES = Jinja2Templates(env=_ENV)
 
 _QUERY_PARSER = QueryParser()
-
-_MAX_AGE = 60 * 60
 
 
 class _State(TypedDict):
@@ -94,7 +86,7 @@ def index(request: Request) -> HTMLResponse:
         request,
         "index.html",
         {"form_base": "base.html", "title": _("Search")},
-        headers={"Cache-Control": f"max-age={_MAX_AGE}"},
+        headers={"Cache-Control": f"max-age={MAX_AGE}"},
     )
 
 
@@ -136,16 +128,8 @@ def search(request: Request) -> Response:
             "page": page,
             "load": True,
         },
-        headers={"Cache-Control": f"max-age={_MAX_AGE}"},
+        headers={"Cache-Control": f"max-age={MAX_AGE}"},
     )
-
-
-@aiocache.cached(noself=True, ttl=_MAX_AGE)
-@timed
-async def _engine_search(
-    state: _State, engine: Engine, query: ParsedQuery, page: int
-) -> list[Result]:
-    return await engine.search(state.session, query, page)  # type: ignore[attr-defined]
 
 
 async def results(request: Request) -> Response:
@@ -156,39 +140,9 @@ async def results(request: Request) -> Response:
         query, request.headers.get("Accept-Language", "")
     )
 
-    engines = get_engines(parsed_query, mode, page)
-
-    results = {}
-    errors = {}
-
-    tasks = {
-        asyncio.create_task(
-            _engine_search(request.state, engine, parsed_query, page)
-        ): engine
-        for engine in engines
-    }
-
-    prio_tasks = {task for task, engine in tasks.items() if engine.weight > 1}
-    await asyncio.wait(prio_tasks)
-    max_time = max(task.result()[1] for task in prio_tasks)
-
-    await asyncio.wait(tasks.keys(), timeout=max(max_time * 0.5, 1 - max_time))
-    for task, engine in tasks.items():
-        if task.done():
-            if (exc := task.exception()) is None:
-                engine_results, time = task.result()
-                metric_success(engine, len(engine_results), time)
-                results[engine] = engine_results
-            else:
-                traceback.print_exception(exc)
-                errors[engine] = exc
-        else:
-            task.cancel()
-            errors[engine] = TimeoutError()
-
-    metric_errors(errors)
-
-    rated_results = rate_results(results, parsed_query.lang)
+    rated_results, errors = await perform_search(
+        request.state.session, parsed_query, mode, page
+    )
 
     return _TEMPLATES.TemplateResponse(
         request,
@@ -206,7 +160,7 @@ async def results(request: Request) -> Response:
             "results": rated_results,
             "engine_errors": errors,
         },
-        headers={"Vary": "Accept-Language", "Cache-Control": f"max-age={_MAX_AGE}"},
+        headers={"Vary": "Accept-Language", "Cache-Control": f"max-age={MAX_AGE}"},
     )
 
 
@@ -235,7 +189,7 @@ async def img(request: Request) -> Response:
     return Response(
         content=resp.content,
         media_type=resp.headers["Content-Type"],
-        headers={"Cache-Control": f"max-age={_MAX_AGE*10}"},
+        headers={"Cache-Control": f"max-age={MAX_AGE * 10}"},
     )
 
 
