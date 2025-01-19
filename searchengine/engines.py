@@ -354,6 +354,76 @@ class _SearxEngine(Engine):
     def _request(self, query: ParsedQuery, params: _Params) -> _Params:
         return self._engine.request(str(query), params)  # type: ignore[no-any-return]
 
+    def _parse_url(self, result: dict) -> Optional[Url]:
+        assert "url" in result
+        assert isinstance(result["url"], str)
+
+        if not result["url"]:
+            self._log(f"result w/o URL {result}")
+            return None
+
+        return Url.parse(result["url"])
+
+    def _parse_title(self, result: dict) -> Optional[str]:
+        assert "title" in result
+        assert isinstance(result["title"], str)
+
+        if not result["title"]:
+            self._log(f"result w/o title {result}")
+            return None
+
+        return result["title"]
+
+    @staticmethod
+    def _parse_content(result: dict) -> str:
+        assert "content" not in result or isinstance(result["content"], str)
+
+        if "content" not in result or result["content"] == result.get("title"):
+            return ""
+
+        return result["content"]
+
+    def _parse_answer_result(self, result: dict) -> Optional[AnswerResult]:
+        assert "answer" in result
+        assert isinstance(result["answer"], str)
+        assert result["answer"]
+
+        if (url := self._parse_url(result)) is None:
+            return None
+
+        return AnswerResult(result["answer"], url)
+
+    def _parse_image_result(self, result: dict) -> Optional[ImageResult]:
+        assert "img_src" in result
+        assert isinstance(result["img_src"], str)
+        assert result["img_src"]
+
+        assert "thumbnail_src" not in result or isinstance(result["thumbnail_src"], str)
+        assert "thumbnail_src" not in result or result["thumbnail_src"]
+
+        assert "template" in result
+        assert result["template"] == "images.html"
+
+        if (url := self._parse_url(result)) is None:
+            return None
+        if (title := self._parse_title(result)) is None:
+            return None
+
+        return ImageResult(
+            title,
+            url,
+            self._parse_content(result),
+            Url.parse(unescape(result.get("thumbnail_src", result["img_src"]))),
+        )
+
+    def _parse_web_result(self, result: dict) -> Optional[WebResult]:
+        if (url := self._parse_url(result)) is None:
+            return None
+        if (title := self._parse_title(result)) is None:
+            return None
+
+        return WebResult(title, url, self._parse_content(result))
+
     def _response(self, response: Response) -> list[Result]:
         if not response.text:
             return []
@@ -361,53 +431,27 @@ class _SearxEngine(Engine):
         results: list[Result] = []
 
         for result in self._engine.response(response):
-            if "number_of_results" in result or "suggestion" in result:
+            if (
+                "suggestion" in result
+                or "correction" in result
+                or "infobox" in result
+                or "number_of_results" in result
+                or "engine_data" in result
+            ):
                 continue
-
-            assert "url" in result
-            assert isinstance(result["url"], str)
-            if not result["url"]:
-                self._log(f"result w/o URL {result}")
-                continue
-
-            url = Url.parse(result["url"])
 
             if "answer" in result:
-                assert isinstance(result["answer"], str)
-                assert result["answer"]
-                results.append(AnswerResult(result["answer"], url))
-                continue
-
-            assert "title" in result
-            assert isinstance(result["title"], str)
-            if not result["title"]:
-                self._log(f"result w/o title {result}")
+                if (answer := self._parse_answer_result(result)) is not None:
+                    results.append(answer)
                 continue
 
             if "img_src" in result:
-                src = result.get("thumbnail_src", result["img_src"])
-                assert isinstance(src, str)
-                assert src
-                assert result.get("template") == "images.html"
-                results.append(
-                    ImageResult(
-                        result["title"],
-                        url,
-                        result.get("content", ""),
-                        Url.parse(unescape(src)),
-                    )
-                )
+                if (image := self._parse_image_result(result)) is not None:
+                    results.append(image)
                 continue
 
-            assert "content" in result
-            assert isinstance(result["content"], str)
-            results.append(
-                WebResult(
-                    result["title"],
-                    url,
-                    result["content"],
-                )
-            )
+            if (web := self._parse_web_result(result)) is not None:
+                results.append(web)
 
         return results
 
