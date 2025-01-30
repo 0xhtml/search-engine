@@ -1,11 +1,15 @@
 SEARXNG:=searxng/dist/searxng-$(shell cd searxng && python -c 'from searx import version; print(version.VERSION_TAG)')-py3-none-any.whl
 LOCALES:=$(patsubst %.po,%.mo,$(wildcard locales/*/LC_MESSAGES/*.po))
 
+.PHONY: docker
+docker: build
+	docker build --build-arg SEARXNG=$(SEARXNG) -t searchengine .
+
 .PHONY: build
-build: $(LOCALES) static/style.css static/htmx.min.js env domains.txt
+build: $(LOCALES) static/style.css static/htmx.min.js domains.txt $(SEARXNG)
 
 .PHONY: run
-run: build
+run: env/run build
 	env/bin/uvicorn searchengine:app --reload
 
 .PHONY: test
@@ -29,14 +33,18 @@ static/%.css: scss/%.scss scss/*.scss
 static/htmx.min.js:
 	wget https://unpkg.com/htmx.org@2.0.2/dist/htmx.min.js -O static/htmx.min.js
 
-env: requirements.txt $(SEARXNG)
+env: build-requirements.txt
 	rm -rf env
 	python -m venv env || (rm -r env && false)
-	env/bin/pip install $(patsubst %.txt,-r %.txt,$^) || (rm -r env && false)
+	env/bin/pip install -r build-requirements.txt || (rm -r env && false)
 
 env/dev: dev-requirements.txt env
 	env/bin/pip install -r dev-requirements.txt || (rm -r env && false)
 	touch env/dev
+
+env/run: requirements.txt $(SEARXNG) env
+	env/bin/pip install -r requirements.txt $(SEARXNG) || (rm -r env && false)
+	touch env/run
 
 $(SEARXNG):
 	cd searxng && ./manage py.build
