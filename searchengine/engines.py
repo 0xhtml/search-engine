@@ -463,7 +463,7 @@ class _SearxEngine(Engine):
 _ENGINES = {
     _SearxEngine("alexandria", features=_Features.SITE),
     # TODO: check if bing does support quotation
-    _SearxEngine("bing", weight=1.5, features=_Features.SITE),
+    _SearxEngine("bing", weight=1.5, features=_Features(0)),
     _SearxEngine("bing images", weight=1.5, features=_Features.SITE),
     _SearxEngine("google", weight=1.5, features=_Features.QUOTES | _Features.SITE),
     _SearxEngine(
