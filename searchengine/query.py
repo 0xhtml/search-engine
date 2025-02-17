@@ -13,50 +13,52 @@ class ParsedQuery(NamedTuple):
     site: Optional[str]
 
 
-class QueryParser:
-    """Parser for search queries."""
+tokens = ("LANG", "SITE", "QUOTED_WORD", "WORD")
 
-    tokens = ("LANG", "SITE", "QUOTED_WORD", "WORD")
 
-    def t_LANG(self, t: ply.lex.LexToken) -> ply.lex.LexToken:
-        r"lang:\S+|:(de|en)(?!\S)"
-        t.value = t.value.removeprefix("lang").removeprefix(":")
-        return t
+def t_LANG(t: ply.lex.LexToken) -> ply.lex.LexToken:
+    r"lang:\S+|:(de|en)(?!\S)"
+    t.value = t.value.removeprefix("lang").removeprefix(":")
+    return t
 
-    def t_SITE(self, t: ply.lex.LexToken) -> ply.lex.LexToken:
-        r"site:\S+"
-        t.value = t.value.removeprefix("site:")
-        return t
 
-    def t_QUOTED_WORD(self, t: ply.lex.LexToken) -> ply.lex.LexToken:
-        r'"[^"]+("|$)'
-        t.value = t.value.strip('"')
-        return t
+def t_SITE(t: ply.lex.LexToken) -> ply.lex.LexToken:
+    r"site:\S+"
+    t.value = t.value.removeprefix("site:")
+    return t
 
-    t_WORD = r"\S+"
-    t_ignore = " "
 
-    def t_error(self, t: ply.lex.LexToken) -> None:
-        raise RuntimeError(f"Unexpected token: {t.value}")
+def t_QUOTED_WORD(t: ply.lex.LexToken) -> ply.lex.LexToken:
+    r'"[^"]+("|$)'
+    t.value = t.value.strip('"')
+    return t
 
-    def __init__(self) -> None:
-        """Initialize the query parser."""
-        self.lexer = ply.lex.lex(module=self)
 
-    def parse_query(self, query: str) -> ParsedQuery:
-        """Parse a search query into a ParsedQuery."""
-        self.lexer.input(query)
+t_WORD = r"\S+"
+t_ignore = " "
 
-        words = []
-        lang = None
-        site = None
 
-        while token := self.lexer.token():
-            if token.type == "LANG":
-                lang = token.value
-            elif token.type == "SITE":
-                site = token.value
-            else:
-                words.append(token.value)
+def t_error(t: ply.lex.LexToken) -> None:
+    raise RuntimeError(f"Unexpected token: {t.value}")
 
-        return ParsedQuery(words, lang, site)
+
+_LEXER = ply.lex.lex()
+
+
+def parse_query(query: str) -> ParsedQuery:
+    """Parse a search query into a ParsedQuery."""
+    _LEXER.input(query)
+
+    words = []
+    lang = None
+    site = None
+
+    while token := _LEXER.token():
+        if token.type == "LANG":
+            lang = token.value
+        elif token.type == "SITE":
+            site = token.value
+        else:
+            words.append(token.value)
+
+    return ParsedQuery(words, lang, site)
