@@ -168,24 +168,27 @@ class _CstmEngine[Path, Element](Engine):
         url: str,
         query_key: str = "q",
         params: dict[str, str] = _DEFAULT_PARAMS,
-        result_path: Path,
-        title_path: Path,
-        url_path: Path,
-        text_path: Path,
-        src_path: Optional[Path] = None,
+        result_path: str,
+        title_path: str,
+        url_path: str,
+        text_path: str,
+        src_path: Optional[str] = None,
     ) -> None:
         if mode == SearchMode.IMAGES and src_path is None:
             msg = "src_path is required for image search"
+            raise ValueError(msg)
+        if mode != SearchMode.IMAGES and src_path is not None:
+            msg = "src_path is only supported for image search"
             raise ValueError(msg)
 
         self._url = url
         self._query_key = query_key
         self._params = params
-        self._result_path = result_path
-        self._title_path = title_path
-        self._url_path = url_path
-        self._text_path = text_path
-        self._src_path = src_path
+        self._result_path = self._parse_path(result_path)
+        self._title_path = self._parse_path(title_path)
+        self._url_path = self._parse_path(url_path)
+        self._text_path = self._parse_path(text_path)
+        self._src_path = self._parse_path(src_path) if src_path is not None else None
 
         super().__init__(
             name,
@@ -198,6 +201,11 @@ class _CstmEngine[Path, Element](Engine):
     @property
     def url(self) -> str:
         return self._url
+
+    @staticmethod
+    @abstractmethod
+    def _parse_path(path: str) -> Path:
+        pass
 
     @staticmethod
     @abstractmethod
@@ -256,6 +264,10 @@ class _CstmEngine[Path, Element](Engine):
 
 class _XPathEngine(_CstmEngine[etree.XPath, html.HtmlElement]):
     @staticmethod
+    def _parse_path(path: str) -> etree.XPath:
+        return etree.XPath(path)
+
+    @staticmethod
     def _parse_response(response: Response) -> html.HtmlElement:
         return html.document_fromstring(response.text)
 
@@ -278,6 +290,10 @@ class _XPathEngine(_CstmEngine[etree.XPath, html.HtmlElement]):
 
 
 class _JSONEngine(_CstmEngine[jsonpath_ng.JSONPath, jsonpath_ng.DatumInContext]):
+    @staticmethod
+    def _parse_path(path: str) -> jsonpath_ng.JSONPath:
+        return jsonpath_ng.ext.parse(path)
+
     @staticmethod
     def _parse_response(response: Response) -> jsonpath_ng.DatumInContext:
         return jsonpath_ng.Root().find(response.json())
@@ -472,10 +488,10 @@ _ENGINES = {
         features=_Features.SITE,
         url="https://se-proxy.azurewebsites.net/api/search",
         params={"slice": "0:12"},
-        result_path=jsonpath_ng.ext.parse("'结果'[?'信息'.'标题' != '']"),
-        url_path=jsonpath_ng.parse("'网址'"),
-        title_path=jsonpath_ng.parse("'信息'.'标题'"),
-        text_path=jsonpath_ng.parse("'信息'.'描述'"),
+        result_path="'结果'[?'信息'.'标题' != '']",
+        url_path="'网址'",
+        title_path="'信息'.'标题'",
+        text_path="'信息'.'描述'",
     ),
     _SearxEngine("stract", features=_Features.QUOTES | _Features.SITE),
     _SearxEngine("yep", features=_Features.SITE),
