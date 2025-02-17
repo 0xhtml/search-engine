@@ -480,7 +480,7 @@ _ENGINES = {
         "google images", weight=1.5, features=_Features.QUOTES | _Features.SITE
     ),
     _SearxEngine("google scholar", weight=1.5),
-    _SearxEngine("mojeek", features=_Features.SITE),
+    _SearxEngine("mojeek", weight=1.5, features=_Features.SITE),
     _SearxEngine("reddit", weight=0.25, mode=SearchMode.WEB),
     _SearxEngine("right dao", features=_Features.QUOTES | _Features.SITE),
     _JSONEngine(
