@@ -17,7 +17,9 @@ from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 from starlette.templating import Jinja2Templates
 
-from .query import QueryParser, SearchMode
+from .common import Search, SearchMode
+from .lang import detect_lang, parse_accept_language
+from .query import QueryParser
 from .search import MAX_AGE, perform_search
 from .sha import gen_sha
 from .template_filter import TEMPLATE_FILTER_MAP
@@ -136,13 +138,16 @@ async def results(request: Request) -> Response:
     """Perform a search and return the search result page."""
     query, mode, page = _parse_params(request)
 
-    parsed_query = _QUERY_PARSER.parse_query(
-        query, request.headers.get("Accept-Language", "")
-    )
+    parsed_query = _QUERY_PARSER.parse_query(query)
 
-    rated_results, errors = await perform_search(
-        request.state.session, parsed_query, mode, page
-    )
+    lang = parsed_query.lang
+    if lang is None:
+        languages = parse_accept_language(request.headers.get("Accept-Language", ""))
+        lang = detect_lang(" ".join(parsed_query.words), languages or ["en"])
+
+    search = Search(parsed_query.words, lang, parsed_query.site, mode, page)
+
+    rated_results, errors = await perform_search(request.state.session, search)
 
     return _TEMPLATES.TemplateResponse(
         request,

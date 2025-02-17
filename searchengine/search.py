@@ -6,36 +6,36 @@ import traceback
 import aiocache
 from curl_cffi.requests import AsyncSession
 
+from .common import Search
 from .engines import Engine, get_engines
 from .metrics import metric_errors, metric_success
-from .query import ParsedQuery, SearchMode
 from .rate import RatedResult, rate_results
 from .results import Result
 
-MAX_AGE = 60 * 60
+MAX_AGE = 60 * 60 * 24
 
 
 @aiocache.cached(noself=True, ttl=MAX_AGE)
 async def _engine_search(
-    session: AsyncSession, engine: Engine, query: ParsedQuery, page: int
+    session: AsyncSession, engine: Engine, search: Search
 ) -> tuple[list[Result], float]:
     loop = asyncio.get_running_loop()
     start = loop.time()
-    results = await engine.search(session, query, page)
+    results = await engine.search(session, search)
     return results, loop.time() - start
 
 
 async def perform_search(
-    session: AsyncSession, query: ParsedQuery, mode: SearchMode, page: int
+    session: AsyncSession, search: Search
 ) -> tuple[list[RatedResult], dict[Engine, Exception]]:
     """Perform a search for the given query."""
-    engines = get_engines(query, mode, page)
+    engines = get_engines(search)
 
     results = {}
     errors = {}
 
     tasks = {
-        asyncio.create_task(_engine_search(session, engine, query, page)): engine
+        asyncio.create_task(_engine_search(session, engine, search)): engine
         for engine in engines
     }
 
@@ -59,6 +59,6 @@ async def perform_search(
 
     metric_errors(errors)
 
-    rated_results = rate_results(results, query.lang)
+    rated_results = rate_results(results, search.lang)
 
     return rated_results, errors

@@ -2,7 +2,6 @@
 
 from . import importer  # isort: skip
 
-import asyncio
 import json
 from abc import ABC, abstractmethod
 from enum import Flag, auto
@@ -22,7 +21,7 @@ from curl_cffi.requests import AsyncSession, Response
 from curl_cffi.requests.session import HttpMethod
 from lxml import etree, html
 
-from .query import ParsedQuery, SearchMode
+from .common import Search, SearchMode
 from .results import AnswerResult, ImageResult, Result, WebResult
 from .url import Url
 
@@ -49,16 +48,16 @@ class _Features(Flag):
     SITE = auto()
 
     @classmethod
-    def required(cls, query: ParsedQuery, page: int) -> "_Features":
+    def required(cls, search: Search) -> "_Features":
         extensions = cls(0)
 
-        if page != 1:
+        if search.page != 1:
             extensions |= cls.PAGING
 
-        if any(" " in word for word in query.words):
+        if any(" " in word for word in search.words):
             extensions |= cls.QUOTES
 
-        if query.site is not None:
+        if search.site is not None:
             extensions |= cls.SITE
 
         return extensions
@@ -106,7 +105,7 @@ class Engine(ABC):
         """Return URL of the engine."""
 
     @abstractmethod
-    def _request(self, query: ParsedQuery, params: _Params) -> _Params:
+    def _request(self, search: Search, params: _Params) -> _Params:
         pass
 
     @abstractmethod
@@ -117,24 +116,19 @@ class Engine(ABC):
         """Check if the engine supports a query language."""
         return True
 
-    async def search(
-        self,
-        session: AsyncSession,
-        query: ParsedQuery,
-        page: int,
-    ) -> list[Result]:
+    async def search(self, session: AsyncSession, search: Search) -> list[Result]:
         """Perform a search and return the results."""
         params = self._request(
-            query,
+            search,
             _Params(
                 cookies={},
                 data=None,
                 headers={},
-                language=query.lang,
+                language=search.lang,
                 method=self._method,
-                pageno=page,
+                pageno=search.page,
                 safesearch=2,
-                searxng_locale=query.lang,
+                searxng_locale=search.lang,
                 time_range=None,
             ),
         )
@@ -220,8 +214,8 @@ class _CstmEngine[Path, Element](Engine):
     def _get(root: Element, path: Optional[Path]) -> str:
         pass
 
-    def _request(self, query: ParsedQuery, params: _Params) -> _Params:
-        data = {self._query_key: str(query), **self._params}
+    def _request(self, search: Search, params: _Params) -> _Params:
+        data = {self._query_key: search.query_string(), **self._params}
 
         if self._method == "GET":
             params["url"] = f"{self._url}?{urlencode(data)}"
@@ -349,8 +343,8 @@ class _SearxEngine(Engine):
     def url(self) -> str:
         return self._engine.about["website"]
 
-    def _request(self, query: ParsedQuery, params: _Params) -> _Params:
-        return self._engine.request(str(query), params)  # type: ignore[no-any-return]
+    def _request(self, search: Search, params: _Params) -> _Params:
+        return self._engine.request(search.query_string(), params)  # type: ignore[no-any-return]
 
     def _parse_url(self, result: dict) -> Optional[Url]:
         assert "url" in result
@@ -489,18 +483,18 @@ _ENGINES = {
 }
 
 
-def get_engines(query: ParsedQuery, mode: SearchMode, page: int) -> set[Engine]:
+def get_engines(search: Search) -> set[Engine]:
     """Return list of enabled engines for the language."""
     return {
         engine
         for engine in _ENGINES
-        if engine.mode == mode
-        if engine.supports_language(query.lang)
-        if _Features.required(query, page)
+        if engine.mode == search.mode
+        if engine.supports_language(search.lang)
+        if _Features.required(search)
         in engine.features
         | (
             _Features.SITE
-            if query.site == Url.parse(engine.url).netloc.removeprefix("www.")
+            if search.site == Url.parse(engine.url).netloc.removeprefix("www.")
             else _Features(0)
         )
     }
