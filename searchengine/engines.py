@@ -101,7 +101,11 @@ class Engine:
     @property
     def url(self) -> ParseResult:
         """Return URL of the engine."""
-        return urlparse(self._engine.about["website"])
+        return urlparse(
+            self._engine.about["website"]
+            if "website" in self._engine.about
+            else self._engine.search_url
+        )
 
     def supports_language(self, language: str) -> bool:
         """Check if the engine supports a query language."""
