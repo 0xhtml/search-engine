@@ -1,36 +1,21 @@
 """Tests for the rate module."""
 
 import enum
+from urllib.parse import urlparse
 
 import pytest
 from searchengine.engines import Engine
 from searchengine.rate import RatedResult
 from searchengine.results import AnswerResult, ImageResult, Result, WebResult
-from searchengine.url import Url
 
-RatedResult.__repr__ = (
-    lambda self: f"RatedResult(result={self.result}, rating={self.rating})"
-)
-
-_URL = Url.parse("http://example.com")
-_WEB = WebResult("web", _URL, None)
-_IMAGE = ImageResult("image", _URL, None, None)
-_ANSWER = AnswerResult("answer", _URL)
+_URL = urlparse("http://example.com")
+_WEB = WebResult(_URL, "", "")
+_IMAGE = ImageResult(_URL, "", "", _URL)
+_ANSWER = AnswerResult(_URL, "")
 
 
-class _Engine(Engine):
-    def _request(self):
-        pass
-
-    def _response(self):
-        pass
-
-    def url(self):
-        pass
-
-
-_ENGINE = _Engine("engine")
-_ENGINE2 = _Engine("engine2")
+_ENGINE = Engine({"name": "", "engine": "google"})
+_ENGINE2 = Engine({"name": "", "engine": "google"})
 
 
 class _Cmp(enum.Enum):

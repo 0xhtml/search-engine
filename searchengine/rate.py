@@ -1,27 +1,28 @@
 """Module for rating results."""
 
 import heapq
+from typing import Self
+from urllib.parse import ParseResult
 
 import regex
 
 from .engines import Engine
 from .lang import is_lang
 from .results import AnswerResult, ImageResult, Result, WebResult
-from .url import Url
 
 with open("domains.txt") as file:
     _SPAM_DOMAINS = {x.removeprefix("www.") for x in file if not x.startswith("#")}
 
 
-def _comparable_url(url: Url) -> Url:
+def _comparable_url(url: ParseResult) -> ParseResult:
     assert url.scheme in {"http", "https"}
     return url._replace(
         scheme="http",
-        netloc=url.host.removeprefix("www.").replace(
+        netloc=url.netloc.removeprefix("www.").replace(
             ".m.wikipedia.org", ".wikipedia.org"
         ),
         path=url.path.replace("%E2%80%93", "-")
-        if url.host.endswith(".wikipedia.org")
+        if url.netloc.endswith(".wikipedia.org")
         else url.path,
         fragment="",
     )
@@ -36,13 +37,9 @@ class RatedResult:
         self.rating = rating * engine.weight
         self.engines = {engine}
 
+        self._text = result.text
         if isinstance(result, WebResult | ImageResult):
-            self._text = result.title
-            if result.text is not None:
-                self._text += " " + result.text
-        else:
-            assert isinstance(result, AnswerResult)
-            self._text = result.answer
+            self._text += " " + result.title
 
     def update(self, result: Result, rating: float, engine: Engine) -> bool:
         """Update rated result by combining the result from another engine."""
@@ -55,7 +52,7 @@ class RatedResult:
 
         if isinstance(self.result, ImageResult) and isinstance(result, WebResult):
             self.result = WebResult(
-                self.result.title, self.result.url, self.result.text
+                self.result.url, self.result.title, self.result.text
             )
 
         if len(self.result.text or "") < len(result.text or ""):
@@ -68,7 +65,7 @@ class RatedResult:
 
         if engine.weight > max_weight or (
             engine.weight == max_weight
-            and len(str(self.result.url)) > len(str(result.url))
+            and len(self.result.url.geturl()) > len(result.url.geturl())
         ):
             self.result = self.result._replace(url=result.url)
 
@@ -98,7 +95,7 @@ class RatedResult:
         else:
             self.rating *= (is_lang(self._text, lang) + 1) / 2
 
-        host = self.result.url.host.removeprefix("www.")
+        host = self.result.url.netloc.removeprefix("www.")
         if host == "reddit.com":
             self.rating *= 2
         elif host in {"docs.python.org", "stackoverflow.com", "github.com"}:
@@ -117,7 +114,7 @@ class RatedResult:
         assert isinstance(self.result, AnswerResult)
         return "answer"
 
-    def __lt__(self, other: "RatedResult") -> bool:
+    def __lt__(self, other: Self) -> bool:
         """Compare two rated results by rating."""
         self_answer = isinstance(self.result, AnswerResult)
         other_answer = isinstance(other.result, AnswerResult)

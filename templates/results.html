@@ -5,7 +5,7 @@
     {% for r in results %}
     <li class="{{ r.result_type() }}">
         {% if r.result_type() == "web" %}
-        <a href="{{ r.result.url }}">
+        <a href="{{ r.result.url.geturl() }}">
             <small>{{ r.result.url | pretty_url }}</small>
             <h3>{{ r.result.title | highlight(parsed_query) }}</h3>
         </a>
@@ -13,12 +13,12 @@
         <p>{{ r.result.text | highlight(parsed_query) }}</p>
         {% endif %}
         {% elif r.result_type() == "image" %}
-        <a href="{{ r.result.url }}">
+        <a href="{{ r.result.url.geturl() }}">
             <img src="{{ r.result.src | proxy }}" title="{{ r.result.title }}"{% if r.result.text %} alt="{{ r.result.text }}"{% endif %}>
         </a>
         {% elif r.result_type() == "answer" %}
-        <p>{{ r.result.answer }}</p>
-        <a href="{{ r.result.url }}">{{ r.result.url.host }}</a>
+        <p>{{ r.result.text }}</p>
+        <a href="{{ r.result.url.geturl() }}">{{ r.result.url.netloc }}</a>
         {% endif %}
         <small>{{ "{:.1f}".format(r.rating) }} - {{ r.engines | map("string") | sort | join(" ") }}</small>
     </li>

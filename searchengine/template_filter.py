@@ -2,14 +2,13 @@
 
 import traceback
 from typing import Any
-from urllib.parse import unquote, urlencode
+from urllib.parse import ParseResult, unquote, urlencode
 
 import markupsafe
 from jinja2 import pass_context
 
 from .query import ParsedQuery
 from .sha import gen_sha
-from .url import Url
 
 
 def _highlight(string: str, query: ParsedQuery) -> markupsafe.Markup:
@@ -46,16 +45,16 @@ def _highlight(string: str, query: ParsedQuery) -> markupsafe.Markup:
     return result
 
 
-def _pretty_url(url: Url) -> markupsafe.Markup:
-    return markupsafe.escape(url._replace(path=unquote(url.path)))
+def _pretty_url(url: ParseResult) -> markupsafe.Markup:
+    return markupsafe.escape(url._replace(path=unquote(url.path)).geturl())
 
 
 @pass_context
-def _proxy(ctx: dict[str, Any], url: Url) -> str:
+def _proxy(ctx: dict[str, Any], url: ParseResult) -> str:
     return (
         str(ctx["request"].url_for("img"))
         + "?"
-        + urlencode({"url": url, "sha": gen_sha(str(url))})
+        + urlencode({"url": url.geturl(), "sha": gen_sha(url.geturl())})
     )
 
 

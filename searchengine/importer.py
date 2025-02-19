@@ -1,8 +1,9 @@
 """Overwrite import of searx.network to avoid spawning of threads."""
 
 import builtins
+from collections.abc import Mapping, Sequence
 from types import ModuleType
-from typing import Mapping, Optional, Sequence
+from typing import Optional
 
 _builtin_import = builtins.__import__
 

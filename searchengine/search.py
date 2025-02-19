@@ -27,12 +27,12 @@ async def _engine_search(
 
 async def perform_search(
     session: AsyncSession, search: Search
-) -> tuple[list[RatedResult], dict[Engine, Exception]]:
+) -> tuple[list[RatedResult], dict[Engine, BaseException]]:
     """Perform a search for the given query."""
     engines = get_engines(search)
 
-    results = {}
-    errors = {}
+    results: dict[Engine, list[Result]] = {}
+    errors: dict[Engine, BaseException] = {}
 
     tasks = {
         asyncio.create_task(_engine_search(session, engine, search)): engine

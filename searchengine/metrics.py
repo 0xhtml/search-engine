@@ -35,7 +35,7 @@ def metric_success(engine: Engine, result_count: int, time: float) -> None:
         )
 
 
-def metric_errors(errors: dict[Engine, Exception]) -> None:
+def metric_errors(errors: dict[Engine, BaseException]) -> None:
     """Store engine error metrics in database."""
     with contextlib.closing(sqlite3.connect("metrics.db")) as con, con:
         _create_tables(con)
