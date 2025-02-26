@@ -1,18 +1,16 @@
 @import "normalize.scss";
 
 @mixin colors($bg, $fn) {
-    :root {
-        --bg: #{$bg};
-        --muted: #{call($fn, $bg, 15)};
-        --dark: #{call($fn, $bg, 30)};
-        --half: #{call($fn, $bg, 43)};
-        --fg: #{call($fn, $bg, 80)};
-    }
+    --bg: #{$bg};
+    --muted: #{call($fn, $bg, 15)};
+    --dark: #{call($fn, $bg, 30)};
+    --half: #{call($fn, $bg, 53)};
+    --fg: #{call($fn, $bg, 80)};
 }
 
-@include colors(#fbfbfb, get-function(darken));
 
 :root {
+    @include colors(#fbfbfb, get-function(darken));
     --hbg: #4c60ff;
     --hfg: #fff;
 }
@@ -43,8 +41,8 @@ img {
     background: $bg;
     border-radius: $spacing;
     box-sizing: border-box;
-    color: lighten($bg, 50);
-    margin: 1em 0;
+    color: lighten($bg, 52);
+    margin: 1em;
     padding: $spacing - $line-spacing $spacing;
 
     & > * {
@@ -158,7 +156,7 @@ img {
     grid-template-columns: 1fr 1fr;
     grid-gap: 1.25em;
 
-    & a {
+    & a, & .a {
         display: block;
         text-decoration: none;
         color: var(--hbg);
@@ -189,7 +187,7 @@ img {
         color: var(--half);
     }
 
-    & > .web, & > .answer, & > .error {
+    & > .web, & > .answer {
         grid-column: 1 / span 2;
     }
 
@@ -245,7 +243,9 @@ img {
 }
 
 @media (prefers-color-scheme: dark) {
-    @include colors(#1a1a1a, get-function(lighten));
+    :root {
+        @include colors(#1a1a1a, get-function(lighten));
+    }
 
     .logo {
         filter: invert(100%) brightness(85%);

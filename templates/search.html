@@ -33,17 +33,17 @@
     {% for _ in range(10) %}
     {% if mode == SearchMode.IMAGES %}
     <li class="image">
-        <a>
+        <div class="a">
             <span style="width: {{ loop.cycle(10, 12, 11) }}em; height: {{ loop.cycle(10, 8, 9, 11, 12) }}em"></span>
-        </a>
+        </div>
         <small><span style="width: {{ loop.cycle(8, 6, 6) }}em"></span></small>
     </li>
     {% else %}
     <li class="web">
-        <a>
+        <div class="a">
             <small><span style="width: {{ loop.cycle(20, 16, 20) }}em"></span></small>
             <h3><span style="width: {{ loop.cycle(37, 22, 34, 24) }}em"></span></h3>
-        </a>
+        </div>
         <p>
             <span style="width: {{ loop.cycle(98, 99, 95) }}%"></span>
             {% if loop.cycle(true, false, true) %}

@@ -26,6 +26,6 @@ COPY static static
 COPY --from=domains domains.txt .
 COPY --from=locales locales locales
 COPY --from=scss style.css static/.
-ADD https://unpkg.com/htmx.org@2.0.2/dist/htmx.min.js static/.
+ADD https://unpkg.com/htmx.org@2.0.4/dist/htmx.min.js static/.
 EXPOSE 80
 CMD ["uvicorn", "searchengine:app", "--host", "0.0.0.0", "--port", "80"]

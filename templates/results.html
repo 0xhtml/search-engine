@@ -23,15 +23,15 @@
         <small>{{ "{:.1f}".format(r.rating) }} - {{ r.engines | map("string") | sort | join(" ") }}</small>
     </li>
     {% endfor %}
-    {% if engine_errors %}
-    <div class="error">
-        <h4>{{ _("Error") }}</h4>
-        <ul>
-            {% for engine, error in engine_errors.items() %}
-            <li>{{ engine }}: {{ error | pretty_exc }}</li>
-            {% endfor %}
-        </ul>
-    </div>
-    {% endif %}
 </ul>
+{% if engine_errors %}
+<div class="error">
+    <h4>{{ _("Error") }}</h4>
+    <ul>
+        {% for engine, error in engine_errors.items() %}
+        <li>{{ engine }}: {{ error | pretty_exc }}</li>
+        {% endfor %}
+    </ul>
+</div>
+{% endif %}
 {% endblock %}
