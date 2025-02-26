@@ -11,7 +11,7 @@ from .lang import is_lang
 from .results import AnswerResult, ImageResult, Result, WebResult
 
 with open("domains.txt") as file:
-    _SPAM_DOMAINS = {x.removeprefix("www.") for x in file if not x.startswith("#")}
+    _SPAM_DOMAINS = set(file)
 
 
 def _comparable_url(url: ParseResult) -> ParseResult:
