@@ -128,7 +128,7 @@ def search(request: Request) -> Response:
             "page": page,
             "load": True,
         },
-        headers={"Cache-Control": f"max-age={MAX_AGE}"},
+        headers={"Vary": "HX-Request", "Cache-Control": f"max-age={MAX_AGE}"},
     )
 
 
@@ -163,7 +163,10 @@ async def results(request: Request) -> Response:
             "results": rated_results,
             "engine_errors": errors,
         },
-        headers={"Vary": "Accept-Language", "Cache-Control": f"max-age={MAX_AGE}"},
+        headers={
+            "Vary": "Accept-Language, HX-Request",
+            "Cache-Control": f"max-age={MAX_AGE}",
+        },
     )
 
 
