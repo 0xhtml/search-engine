@@ -10,7 +10,7 @@ RUN cat domains.txt global.txt | grep -v \# | sort -u > domains.txt
 
 FROM alpine:3.21 AS searxng
 RUN apk add --no-cache py3-pyaml py3-setuptools
-ADD https://github.com/searxng/searxng.git#a235c54f8c8442242fe727908162e5ece8739b5a .
+ADD https://github.com/searxng/searxng.git#194f22220306b7949660492bdbc3e5418835f88f .
 RUN python setup.py bdist_wheel
 
 FROM alpine:3.21 AS scss
