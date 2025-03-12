@@ -49,7 +49,7 @@ class _State(TypedDict):
 
 @contextlib.asynccontextmanager
 async def _lifespan(app: Starlette) -> AsyncIterator[_State]:
-    async with AsyncSession(impersonate="chrome") as session:
+    async with AsyncSession(impersonate="firefox") as session:
         yield {"session": session}
 
 
