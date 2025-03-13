@@ -2,7 +2,6 @@
 
 import heapq
 from typing import Self
-from urllib.parse import ParseResult
 
 import regex
 
@@ -12,20 +11,6 @@ from .results import AnswerResult, ImageResult, Result, WebResult
 
 with open("domains.txt") as file:
     _SPAM_DOMAINS = set(file)
-
-
-def _comparable_url(url: ParseResult) -> ParseResult:
-    assert url.scheme in {"http", "https"}
-    return url._replace(
-        scheme="http",
-        netloc=url.netloc.removeprefix("www.").replace(
-            ".m.wikipedia.org", ".wikipedia.org"
-        ),
-        path=url.path.replace("%E2%80%93", "-")
-        if url.netloc.endswith(".wikipedia.org")
-        else url.path,
-        fragment="",
-    )
 
 
 class RatedResult:
@@ -43,11 +28,7 @@ class RatedResult:
 
     def update(self, result: Result, rating: float, engine: Engine) -> bool:
         """Update rated result by combining the result from another engine."""
-        if isinstance(result, AnswerResult) or isinstance(self.result, AnswerResult):
-            return False
-        if _comparable_url(self.result.url) != _comparable_url(result.url):
-            return False
-
+        assert self.result == result
         max_weight = max(e.weight for e in self.engines)
 
         if isinstance(self.result, ImageResult) and isinstance(result, WebResult):
@@ -131,7 +112,8 @@ def rate_results(results: dict[Engine, list[Result]], lang: str) -> list[RatedRe
         for i, result in enumerate(result_list):
             rating = (1.25**-i) * 10
             for rated_result in rated_results:
-                if rated_result.update(result, rating, engine):
+                if rated_result.result == result:
+                    rated_result.update(result, rating, engine)
                     break
             else:
                 rated_results.add(RatedResult(result, rating, engine))

@@ -42,6 +42,10 @@ class WebResult(NamedTuple):
         """Parse a web result from a dict returned by searx."""
         return cls(_parse_url(result), _parse_title(result), _parse_content(result))
 
+    def __eq__(self, other: Self) -> bool:
+        """Check if two results are equal based on URL."""
+        return _result_url_eq(self, other)
+
 
 class ImageResult(NamedTuple):
     """An image result consisting of title, url, text and src."""
@@ -68,6 +72,10 @@ class ImageResult(NamedTuple):
             urlparse(unescape(result.get("thumbnail_src", result["img_src"]))),
         )
 
+    def __eq__(self, other: Self) -> bool:
+        """Check if two results are equal based on URL."""
+        return _result_url_eq(self, other)
+
 
 class AnswerResult(NamedTuple):
     """An answer result consisting of answer and url."""
@@ -85,6 +93,26 @@ class AnswerResult(NamedTuple):
 
 
 type Result = WebResult | ImageResult | AnswerResult
+
+
+def _comparable_url(url: ParseResult) -> ParseResult:
+    assert url.scheme in {"http", "https"}
+    return url._replace(
+        scheme="http",
+        netloc=url.netloc.removeprefix("www.").replace(
+            ".m.wikipedia.org", ".wikipedia.org"
+        ),
+        path=url.path.replace("%E2%80%93", "-")
+        if url.netloc.endswith(".wikipedia.org")
+        else url.path,
+        fragment="",
+    )
+
+
+def _result_url_eq(self: WebResult | ImageResult, other: Result) -> bool:
+    if not isinstance(other, WebResult) and not isinstance(other, ImageResult):
+        return False
+    return _comparable_url(self.url) == _comparable_url(other.url)
 
 
 def result_from_searx(result: dict | searx.result_types.Answer) -> Optional[Result]:
