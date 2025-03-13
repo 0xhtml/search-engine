@@ -1,7 +1,5 @@
 """Module to perform a search."""
 
-from . import importer  # isort: skip
-
 from enum import Flag, auto
 from http import HTTPStatus
 from types import ModuleType

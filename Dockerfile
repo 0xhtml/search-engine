@@ -9,8 +9,9 @@ ADD https://raw.githubusercontent.com/quenhus/uBlock-Origin-dev-filter/main/dist
 RUN cat domains.txt global.txt | grep -v \# | sort -u > domains.txt
 
 FROM alpine:3.21 AS searxng
-RUN apk add --no-cache py3-pyaml py3-setuptools
+RUN apk add --no-cache py3-pyaml py3-setuptools patch
 ADD https://github.com/searxng/searxng.git#194f22220306b7949660492bdbc3e5418835f88f .
+RUN --mount=source=searxng.patch,dst=searxng.patch patch -p1 < searxng.patch
 RUN python setup.py bdist_wheel
 
 FROM alpine:3.21 AS scss
