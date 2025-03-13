@@ -1,14 +1,3 @@
----
- requirements.txt                |  17 --
- searx/engines/google.py         | 108 -------------
- searx/engines/google_images.py  |   1 -
- searx/engines/google_scholar.py |   1 -
- searx/engines/mojeek.py         |   9 +-
- searx/locales.py                |  53 -------
- searx/network/__init__.py       | 266 +-------------------------------
- searx/utils.py                  |   1 -
- 8 files changed, 2 insertions(+), 454 deletions(-)
-
 diff --git a/requirements.txt b/requirements.txt
 --- a/requirements.txt
 +++ b/requirements.txt
@@ -37,155 +26,18 @@ diff --git a/requirements.txt b/requirements.txt
 diff --git a/searx/engines/google.py b/searx/engines/google.py
 --- a/searx/engines/google.py
 +++ b/searx/engines/google.py
-@@ -25,8 +25,6 @@ import babel.core
- import babel.languages
+@@ -26,7 +26,6 @@ import babel.core
  
  from searx.utils import extract_text, eval_xpath, eval_xpath_list, eval_xpath_getindex
--from searx.locales import language_tag, region_tag, get_official_locales
+ from searx.locales import language_tag, region_tag, get_official_locales
 -from searx.network import get  # see https://github.com/searxng/searxng/issues/762
  from searx.exceptions import SearxEngineCaptchaException
  from searx.enginelib.traits import EngineTraits
  from searx.result_types import EngineResults
-@@ -422,109 +420,3 @@ def response(resp) -> EngineResults:
- 
-     # return results
-     return results
--
--
--# get supported languages from their site
--
--
--skip_countries = [
--    # official language of google-country not in google-languages
--    'AL',  # Albanien (sq)
--    'AZ',  # Aserbaidschan  (az)
--    'BD',  # Bangladesch (bn)
--    'BN',  # Brunei Darussalam (ms)
--    'BT',  # Bhutan (dz)
--    'ET',  # Äthiopien (am)
--    'GE',  # Georgien (ka, os)
--    'GL',  # Grönland (kl)
--    'KH',  # Kambodscha (km)
--    'LA',  # Laos (lo)
--    'LK',  # Sri Lanka (si, ta)
--    'ME',  # Montenegro (sr)
--    'MK',  # Nordmazedonien (mk, sq)
--    'MM',  # Myanmar (my)
--    'MN',  # Mongolei (mn)
--    'MV',  # Malediven (dv) // dv_MV is unknown by babel
--    'MY',  # Malaysia (ms)
--    'NP',  # Nepal (ne)
--    'TJ',  # Tadschikistan (tg)
--    'TM',  # Turkmenistan (tk)
--    'UZ',  # Usbekistan (uz)
--]
--
--
--def fetch_traits(engine_traits: EngineTraits, add_domains: bool = True):
--    """Fetch languages from Google."""
--    # pylint: disable=import-outside-toplevel, too-many-branches
--
--    engine_traits.custom['supported_domains'] = {}
--
--    resp = get('https://www.google.com/preferences')
--    if not resp.ok:  # type: ignore
--        raise RuntimeError("Response from Google's preferences is not OK.")
--
--    dom = html.fromstring(resp.text.replace('<?xml version="1.0" encoding="UTF-8"?>', ''))
--
--    # supported language codes
--
--    lang_map = {'no': 'nb'}
--    for x in eval_xpath_list(dom, "//select[@name='hl']/option"):
--        eng_lang = x.get("value")
--        try:
--            locale = babel.Locale.parse(lang_map.get(eng_lang, eng_lang), sep='-')
--        except babel.UnknownLocaleError:
--            print("INFO:  google UI language %s (%s) is unknown by babel" % (eng_lang, x.text.split("(")[0].strip()))
--            continue
--        sxng_lang = language_tag(locale)
--
--        conflict = engine_traits.languages.get(sxng_lang)
--        if conflict:
--            if conflict != eng_lang:
--                print("CONFLICT: babel %s --> %s, %s" % (sxng_lang, conflict, eng_lang))
--            continue
--        engine_traits.languages[sxng_lang] = 'lang_' + eng_lang
--
--    # alias languages
--    engine_traits.languages['zh'] = 'lang_zh-CN'
--
--    # supported region codes
--
--    for x in eval_xpath_list(dom, "//select[@name='gl']/option"):
--        eng_country = x.get("value")
--
--        if eng_country in skip_countries:
--            continue
--        if eng_country == 'ZZ':
--            engine_traits.all_locale = 'ZZ'
--            continue
--
--        sxng_locales = get_official_locales(eng_country, engine_traits.languages.keys(), regional=True)
--
--        if not sxng_locales:
--            print("ERROR: can't map from google country %s (%s) to a babel region." % (x.get('data-name'), eng_country))
--            continue
--
--        for sxng_locale in sxng_locales:
--            engine_traits.regions[region_tag(sxng_locale)] = eng_country
--
--    # alias regions
--    engine_traits.regions['zh-CN'] = 'HK'
--
--    # supported domains
--
--    if add_domains:
--        resp = get('https://www.google.com/supported_domains')
--        if not resp.ok:  # type: ignore
--            raise RuntimeError("Response from https://www.google.com/supported_domains is not OK.")
--
--        for domain in resp.text.split():  # type: ignore
--            domain = domain.strip()
--            if not domain or domain in [
--                '.google.com',
--            ]:
--                continue
--            region = domain.split('.')[-1].upper()
--            engine_traits.custom['supported_domains'][region] = 'www' + domain  # type: ignore
--            if region == 'HK':
--                # There is no google.cn, we use .com.hk for zh-CN
--                engine_traits.custom['supported_domains']['CN'] = 'www' + domain  # type: ignore
-diff --git a/searx/engines/google_images.py b/searx/engines/google_images.py
---- a/searx/engines/google_images.py
-+++ b/searx/engines/google_images.py
-@@ -18,7 +18,6 @@ from typing import TYPE_CHECKING
- from urllib.parse import urlencode
- from json import loads
- 
--from searx.engines.google import fetch_traits  # pylint: disable=unused-import
- from searx.engines.google import (
-     get_google_info,
-     time_range_dict,
-diff --git a/searx/engines/google_scholar.py b/searx/engines/google_scholar.py
---- a/searx/engines/google_scholar.py
-+++ b/searx/engines/google_scholar.py
-@@ -23,7 +23,6 @@ from searx.utils import (
- 
- from searx.exceptions import SearxEngineCaptchaException
- 
--from searx.engines.google import fetch_traits  # pylint: disable=unused-import
- from searx.engines.google import (
-     get_google_info,
-     time_range_dict,
 diff --git a/searx/engines/mojeek.py b/searx/engines/mojeek.py
 --- a/searx/engines/mojeek.py
 +++ b/searx/engines/mojeek.py
-@@ -3,11 +3,9 @@
- 
- from typing import TYPE_CHECKING
- 
--from datetime import datetime
+@@ -7,7 +7,6 @@ from datetime import datetime
  from urllib.parse import urlencode
  from lxml import html
  
@@ -193,42 +45,18 @@ diff --git a/searx/engines/mojeek.py b/searx/engines/mojeek.py
  from searx.utils import eval_xpath, eval_xpath_list, extract_text
  from searx.enginelib.traits import EngineTraits
  
-@@ -21,7 +19,7 @@ about = {
- }
- paging = True  # paging is only supported for general search
- safesearch = True
--time_range_support = True  # time range search is supported for general and news
-+time_range_support = False
- max_page = 10
- 
- base_url = "https://www.mojeek.com"
-@@ -77,11 +75,6 @@ def request(query, params):
-     if search_type == '':
-         args['s'] = 10 * (params['pageno'] - 1)
- 
--    if params['time_range'] and search_type != 'images':
--        kwargs = {_delta_kwargs[params['time_range']]: 1}
--        args["since"] = (datetime.now() - relativedelta(**kwargs)).strftime("%Y%m%d")  # type: ignore
--        logger.debug(args["since"])
--
-     params['url'] = f"{base_url}/search?{urlencode(args)}"
- 
-     return params
 diff --git a/searx/locales.py b/searx/locales.py
 --- a/searx/locales.py
 +++ b/searx/locales.py
-@@ -31,25 +31,17 @@ from __future__ import annotations
- from pathlib import Path
- 
- import babel
--from babel.support import Translations
+@@ -34,22 +34,16 @@ import babel
+ from babel.support import Translations
  import babel.languages
  import babel.core
 -import flask_babel
 -from flask.ctx import has_request_context
  
  from searx import (
--    data,
+     data,
      logger,
      searx_dir,
  )
@@ -243,336 +71,52 @@ diff --git a/searx/locales.py b/searx/locales.py
  LOCALE_NAMES = {}
  """Mapping of locales and their description.  Locales e.g. 'fr' or 'pt-BR' (see
  :py:obj:`locales_initialize`).
-@@ -83,40 +75,6 @@ translation for.  By example: use Taiwan version of the translation for Hong
- Kong."""
- 
- 
--def localeselector():
--    locale = 'en'
--    if has_request_context():
--        value = sxng_request.preferences.get_value('locale')
--        if value:
--            locale = value
--
--    # first, set the language that is not supported by babel
--    if locale in ADDITIONAL_TRANSLATIONS:
--        sxng_request.form['use-translation'] = locale
--
--    # second, map locale to a value python-babel supports
--    locale = LOCALE_BEST_MATCH.get(locale, locale)
--
--    if locale == '':
--        # if there is an error loading the preferences
--        # the locale is going to be ''
--        locale = 'en'
--
--    # babel uses underscore instead of hyphen.
--    locale = locale.replace('-', '_')
--    return locale
--
--
--def get_translations():
--    """Monkey patch of :py:obj:`flask_babel.get_translations`"""
--    if has_request_context():
--        use_translation = sxng_request.form.get('use-translation')
--        if use_translation in ADDITIONAL_TRANSLATIONS:
--            babel_ext = flask_babel.current_app.extensions['babel']
--            return Translations.load(babel_ext.translation_directories[0], use_translation)
--    return _flask_babel_get_translations()
--
--
- _TR_LOCALES: list[str] = []
- 
- 
-@@ -139,17 +97,6 @@ def get_translation_locales() -> list[str]:
-     return _TR_LOCALES
- 
- 
--def locales_initialize():
--    """Initialize locales environment of the SearXNG session.
--
--    - monkey patch :py:obj:`flask_babel.get_translations` by :py:obj:`get_translations`
--    - init global names :py:obj:`LOCALE_NAMES`, :py:obj:`RTL_LOCALES`
--    """
--    flask_babel.get_translations = get_translations
--    LOCALE_NAMES.update(data.LOCALES["LOCALE_NAMES"])
--    RTL_LOCALES.update(data.LOCALES["RTL_LOCALES"])
--
--
- def region_tag(locale: babel.Locale) -> str:
-     """Returns SearXNG's region tag from the locale (e.g. zh-TW , en-US)."""
-     if not locale.territory:
 diff --git a/searx/network/__init__.py b/searx/network/__init__.py
 --- a/searx/network/__init__.py
 +++ b/searx/network/__init__.py
-@@ -1,266 +1,2 @@
- # SPDX-License-Identifier: AGPL-3.0-or-later
--# pylint: disable=missing-module-docstring, global-statement
--
--import asyncio
--import threading
--import concurrent.futures
--from queue import SimpleQueue
--from types import MethodType
--from timeit import default_timer
--from typing import Iterable, NamedTuple, Tuple, List, Dict, Union
--from contextlib import contextmanager
--
+@@ -10,12 +10,6 @@ from timeit import default_timer
+ from typing import Iterable, NamedTuple, Tuple, List, Dict, Union
+ from contextlib import contextmanager
+ 
 -import httpx
 -import anyio
 -
 -from searx.extended_types import SXNG_Response
 -from .network import get_network, initialize, check_network_configuration  # pylint:disable=cyclic-import
 -from .client import get_loop
--from .raise_for_httperror import raise_for_httperror
--
--
--THREADLOCAL = threading.local()
--"""Thread-local data is data for thread specific values."""
--
--
--def reset_time_for_thread():
--    THREADLOCAL.total_time = 0
--
--
--def get_time_for_thread():
--    """returns thread's total time or None"""
--    return THREADLOCAL.__dict__.get('total_time')
--
--
--def set_timeout_for_thread(timeout, start_time=None):
--    THREADLOCAL.timeout = timeout
--    THREADLOCAL.start_time = start_time
--
--
--def set_context_network_name(network_name):
--    THREADLOCAL.network = get_network(network_name)
--
--
--def get_context_network():
--    """If set return thread's network.
--
--    If unset, return value from :py:obj:`get_network`.
--    """
--    return THREADLOCAL.__dict__.get('network') or get_network()
--
--
--@contextmanager
--def _record_http_time():
--    # pylint: disable=too-many-branches
--    time_before_request = default_timer()
--    start_time = getattr(THREADLOCAL, 'start_time', time_before_request)
--    try:
--        yield start_time
--    finally:
--        # update total_time.
--        # See get_time_for_thread() and reset_time_for_thread()
--        if hasattr(THREADLOCAL, 'total_time'):
--            time_after_request = default_timer()
--            THREADLOCAL.total_time += time_after_request - time_before_request
--
--
--def _get_timeout(start_time, kwargs):
--    # pylint: disable=too-many-branches
--
--    # timeout (httpx)
--    if 'timeout' in kwargs:
--        timeout = kwargs['timeout']
--    else:
--        timeout = getattr(THREADLOCAL, 'timeout', None)
--        if timeout is not None:
--            kwargs['timeout'] = timeout
--
--    # 2 minutes timeout for the requests without timeout
--    timeout = timeout or 120
--
--    # adjust actual timeout
--    timeout += 0.2  # overhead
--    if start_time:
--        timeout -= default_timer() - start_time
--
--    return timeout
--
--
+ from .raise_for_httperror import raise_for_httperror
+ 
+ 
+@@ -89,1 +89,1 @@ 
 -def request(method, url, **kwargs) -> SXNG_Response:
--    """same as requests/requests/api.py request(...)"""
--    with _record_http_time() as start_time:
--        network = get_context_network()
--        timeout = _get_timeout(start_time, kwargs)
--        future = asyncio.run_coroutine_threadsafe(network.request(method, url, **kwargs), get_loop())
--        try:
--            return future.result(timeout)
--        except concurrent.futures.TimeoutError as e:
--            raise httpx.TimeoutException('Timeout', request=None) from e
--
--
++def request(method, url, **kwargs) -> "SXNG_Response":
+@@ -101,1 +101,1 @@
 -def multi_requests(request_list: List["Request"]) -> List[Union[httpx.Response, Exception]]:
--    """send multiple HTTP requests in parallel. Wait for all requests to finish."""
--    with _record_http_time() as start_time:
--        # send the requests
--        network = get_context_network()
--        loop = get_loop()
--        future_list = []
--        for request_desc in request_list:
--            timeout = _get_timeout(start_time, request_desc.kwargs)
--            future = asyncio.run_coroutine_threadsafe(
--                network.request(request_desc.method, request_desc.url, **request_desc.kwargs), loop
--            )
--            future_list.append((future, timeout))
--
--        # read the responses
--        responses = []
--        for future, timeout in future_list:
--            try:
--                responses.append(future.result(timeout))
--            except concurrent.futures.TimeoutError:
--                responses.append(httpx.TimeoutException('Timeout', request=None))
--            except Exception as e:  # pylint: disable=broad-except
--                responses.append(e)
--        return responses
--
--
--class Request(NamedTuple):
--    """Request description for the multi_requests function"""
--
--    method: str
--    url: str
--    kwargs: Dict[str, str] = {}
--
--    @staticmethod
--    def get(url, **kwargs):
--        return Request('GET', url, kwargs)
--
--    @staticmethod
--    def options(url, **kwargs):
--        return Request('OPTIONS', url, kwargs)
--
--    @staticmethod
--    def head(url, **kwargs):
--        return Request('HEAD', url, kwargs)
--
--    @staticmethod
--    def post(url, **kwargs):
--        return Request('POST', url, kwargs)
--
--    @staticmethod
--    def put(url, **kwargs):
--        return Request('PUT', url, kwargs)
--
--    @staticmethod
--    def patch(url, **kwargs):
--        return Request('PATCH', url, kwargs)
--
--    @staticmethod
--    def delete(url, **kwargs):
--        return Request('DELETE', url, kwargs)
--
--
++def multi_requests(request_list: List["Request"]) -> List[Union["httpx.Response", Exception]]:
+@@ -163,1 +163,1 @@
 -def get(url, **kwargs) -> SXNG_Response:
--    kwargs.setdefault('allow_redirects', True)
--    return request('get', url, **kwargs)
--
--
++def get(url, **kwargs) -> "SXNG_Response":
+@@ -168,1 +168,1 @@
 -def options(url, **kwargs) -> SXNG_Response:
--    kwargs.setdefault('allow_redirects', True)
--    return request('options', url, **kwargs)
--
--
++def options(url, **kwargs) -> "SXNG_Response":
+@@ -173,1 +173,1 @@
 -def head(url, **kwargs) -> SXNG_Response:
--    kwargs.setdefault('allow_redirects', False)
--    return request('head', url, **kwargs)
--
--
++def head(url, **kwargs) -> "SXNG_Response":
+@@ -178,1 +178,1 @@
 -def post(url, data=None, **kwargs) -> SXNG_Response:
--    return request('post', url, data=data, **kwargs)
--
--
++def post(url, data=None, **kwargs) -> "SXNG_Response":
+@@ -182,1 +182,1 @@
 -def put(url, data=None, **kwargs) -> SXNG_Response:
--    return request('put', url, data=data, **kwargs)
--
--
++def put(url, data=None, **kwargs) -> "SXNG_Response":
+@@ -186,1 +186,1 @@
 -def patch(url, data=None, **kwargs) -> SXNG_Response:
--    return request('patch', url, data=data, **kwargs)
--
--
++def patch(url, data=None, **kwargs) -> "SXNG_Response":
+@@ -190,1 +190,1 @@
 -def delete(url, **kwargs) -> SXNG_Response:
--    return request('delete', url, **kwargs)
--
--
--async def stream_chunk_to_queue(network, queue, method, url, **kwargs):
--    try:
--        async with await network.stream(method, url, **kwargs) as response:
--            queue.put(response)
--            # aiter_raw: access the raw bytes on the response without applying any HTTP content decoding
--            # https://www.python-httpx.org/quickstart/#streaming-responses
--            async for chunk in response.aiter_raw(65536):
--                if len(chunk) > 0:
--                    queue.put(chunk)
--    except (httpx.StreamClosed, anyio.ClosedResourceError):
--        # the response was queued before the exception.
--        # the exception was raised on aiter_raw.
--        # we do nothing here: in the finally block, None will be queued
--        # so stream(method, url, **kwargs) generator can stop
--        pass
--    except Exception as e:  # pylint: disable=broad-except
--        # broad except to avoid this scenario:
--        # exception in network.stream(method, url, **kwargs)
--        # -> the exception is not catch here
--        # -> queue None (in finally)
--        # -> the function below steam(method, url, **kwargs) has nothing to return
--        queue.put(e)
--    finally:
--        queue.put(None)
--
--
--def _stream_generator(method, url, **kwargs):
--    queue = SimpleQueue()
--    network = get_context_network()
--    future = asyncio.run_coroutine_threadsafe(stream_chunk_to_queue(network, queue, method, url, **kwargs), get_loop())
--
--    # yield chunks
--    obj_or_exception = queue.get()
--    while obj_or_exception is not None:
--        if isinstance(obj_or_exception, Exception):
--            raise obj_or_exception
--        yield obj_or_exception
--        obj_or_exception = queue.get()
--    future.result()
--
--
--def _close_response_method(self):
--    asyncio.run_coroutine_threadsafe(self.aclose(), get_loop())
--    # reach the end of _self.generator ( _stream_generator ) to an avoid memory leak.
--    # it makes sure that :
--    # * the httpx response is closed (see the stream_chunk_to_queue function)
--    # * to call future.result() in _stream_generator
--    for _ in self._generator:  # pylint: disable=protected-access
--        continue
--
--
++def delete(url, **kwargs) -> "SXNG_Response":
+@@ -245,1 +245,1 @@
 -def stream(method, url, **kwargs) -> Tuple[httpx.Response, Iterable[bytes]]:
--    """Replace httpx.stream.
--
--    Usage:
--    response, stream = poolrequests.stream(...)
--    for chunk in stream:
--        ...
--
--    httpx.Client.stream requires to write the httpx.HTTPTransport version of the
--    the httpx.AsyncHTTPTransport declared above.
--    """
--    generator = _stream_generator(method, url, **kwargs)
--
--    # yield response
--    response = next(generator)  # pylint: disable=stop-iteration-return
--    if isinstance(response, Exception):
--        raise response
--
--    response._generator = generator  # pylint: disable=protected-access
--    response.close = MethodType(_close_response_method, response)
--
--    return response, generator
-+# pylint: disable=missing-module-docstring
++def stream(method, url, **kwargs) -> Tuple["httpx.Response", Iterable[bytes]]:
 diff --git a/searx/utils.py b/searx/utils.py
 --- a/searx/utils.py
 +++ b/searx/utils.py
@@ -584,6 +128,3 @@ diff --git a/searx/utils.py b/searx/utils.py
  
  from lxml import html
  from lxml.etree import ElementBase, XPath, XPathError, XPathSyntaxError
--- 
-2.48.1
-
