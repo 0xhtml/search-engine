@@ -90,12 +90,6 @@ class Engine:
 
         self._method = method
 
-    def _log(self, msg: str, tag: Optional[str] = None) -> None:
-        if tag is None:
-            print(f"[!] [{self}] {msg}")
-        else:
-            print(f"[!] [{self}] [{tag}] {msg}")
-
     @property
     def url(self) -> ParseResult:
         """Return URL of the engine."""
