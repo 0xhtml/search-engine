@@ -21,6 +21,10 @@ class SearchMode(Enum):
             return "science"
         raise ValueError
 
+    def __str__(self) -> str:
+        """Return capitalized value."""
+        return self.value.capitalize()
+
 
 class Search(NamedTuple):
     """A search request."""

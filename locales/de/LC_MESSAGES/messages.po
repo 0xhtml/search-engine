@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-03-14 01:08+0100\n"
+"POT-Creation-Date: 2025-03-14 01:17+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: de\n"
@@ -43,6 +43,10 @@ msgstr "Ungültiger Suchmodus"
 msgid "Invalid page number"
 msgstr "Ungültige Seitennummer"
 
+#: searchengine/__init__.py:176
+msgid "Engines"
+msgstr "Suchmaschinen"
+
 #: templates/base.html:2
 msgid "en"
 msgstr "de"
@@ -59,6 +63,22 @@ msgstr "Eine (Meta-)Suchmaschine"
 #: templates/form.html:8
 msgid "Search the web..."
 msgstr "Im Web suchen..."
+
+#: templates/engines.html:7
+msgid "Name"
+msgstr "Name"
+
+#: templates/engines.html:8
+msgid "Category"
+msgstr "Kategorie"
+
+#: templates/engines.html:9
+msgid "Features"
+msgstr "Funktionen"
+
+#: templates/engines.html:10
+msgid "Language support"
+msgstr "Sprachunterstützung"
 
 #: templates/search.html:9
 msgid "Web"

@@ -1,0 +1,36 @@
+{% extends base %}
+
+{% block content %}
+<table>
+    <thead>
+        <tr>
+            <th scope="col" rowspan="2">{{ _("Name") }}</th>
+            <th scope="col" rowspan="2">{{ _("Category") }}</th>
+            <th scope="col" colspan="{{ allEngineFeatures | length }}">{{ _("Features") }}</th>
+            <th scope="col" colspan="{{ languages | length }}">{{ _("Language support") }}</th>
+        </tr>
+        <tr>
+            {% for feature in allEngineFeatures %}
+            <th scope="col">{{ _(feature.name.capitalize()) }}</th>
+            {% endfor %}
+            {% for lang in languages %}
+            <th scope="col">{{ lang }}</th>
+            {% endfor %}
+        </tr>
+    </thead>
+    <tbody>
+        {% for engine in ENGINES | sort(attribute="name") | sort(True, attribute="mode.name") %}
+        <tr>
+            <th scope="row">{{ engine.name }}</th>
+            <td>{{ _(engine.mode) }}</td>
+            {% for feature in allEngineFeatures %}
+            <td>{{ (feature in engine.features) | checkmark }}</td>
+            {% endfor %}
+            {% for lang in languages %}
+            <td>{% if engine.language_support %}{{ engine.supports_language(lang) | checkmark }}{% else %}❔{% endif %}</td>
+            {% endfor %}
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

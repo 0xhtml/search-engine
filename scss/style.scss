@@ -242,6 +242,18 @@ img {
     }
 }
 
+table {
+    text-align: left;
+
+    & th, & td {
+        padding: .5em;
+    }
+
+    th, tr:nth-child(even) {
+        background: var(--muted);
+    }
+}
+
 @media (prefers-color-scheme: dark) {
     :root {
         @include colors(#1a1a1a, get-function(lighten));

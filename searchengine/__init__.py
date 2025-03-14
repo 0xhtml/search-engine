@@ -164,6 +164,27 @@ async def results(request: Request) -> Response:
     )
 
 
+async def engines(request: Request) -> Response:
+    """Show a page listing available engines."""
+    _ = _translation(request)
+    return TEMPLATES.TemplateResponse(
+        request,
+        "engines.html",
+        {
+            "_": _,
+            "base": "htmx.html" if "HX-Request" in request.headers else "base.html",
+            "title": _("Engines"),
+            "languages": parse_accept_language(
+                request.headers.get("Accept-Language", "")
+            ),
+        },
+        headers={
+            "Vary": "Accept-Language, HX-Request",
+            "Cache-Control": f"max-age={MAX_AGE}",
+        },
+    )
+
+
 async def img(request: Request) -> Response:
     """Proxy an image."""
     url = request.query_params.get("url", None)
@@ -209,6 +230,7 @@ app = Starlette(
         Route("/", endpoint=index),
         Route("/search", endpoint=search),
         Route("/results", endpoint=results),
+        Route("/engines", endpoint=engines),
         Route("/img", endpoint=img),
         Route("/opensearch.xml", endpoint=opensearch),
         Mount("/static", app=StaticFiles(directory="static"), name="static"),

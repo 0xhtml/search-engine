@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-03-14 01:08+0100\n"
+"POT-Creation-Date: 2025-03-14 01:17+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -42,6 +42,10 @@ msgstr ""
 msgid "Invalid page number"
 msgstr ""
 
+#: searchengine/__init__.py:176
+msgid "Engines"
+msgstr ""
+
 #: templates/base.html:2
 msgid "en"
 msgstr ""
@@ -57,6 +61,22 @@ msgstr ""
 
 #: templates/form.html:8
 msgid "Search the web..."
+msgstr ""
+
+#: templates/engines.html:7
+msgid "Name"
+msgstr ""
+
+#: templates/engines.html:8
+msgid "Category"
+msgstr ""
+
+#: templates/engines.html:9
+msgid "Features"
+msgstr ""
+
+#: templates/engines.html:10
+msgid "Language support"
 msgstr ""
 
 #: templates/search.html:9

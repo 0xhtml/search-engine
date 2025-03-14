@@ -18,23 +18,25 @@ from .common import Search, SearchMode
 from .results import Result, result_from_searx
 
 
-class _Features(Flag):
+class EngineFeatures(Flag):
+    """Flags for engine features."""
+
     PAGING = auto()
     QUOTES = auto()
     SITE = auto()
 
 
-def _required_features(search: Search) -> _Features:
-    extensions = _Features(0)
+def _required_features(search: Search) -> EngineFeatures:
+    extensions = EngineFeatures(0)
 
     if search.page != 1:
-        extensions |= _Features.PAGING
+        extensions |= EngineFeatures.PAGING
 
     if any(" " in word for word in search.words):
-        extensions |= _Features.QUOTES
+        extensions |= EngineFeatures.QUOTES
 
     if search.site is not None:
-        extensions |= _Features.SITE
+        extensions |= EngineFeatures.SITE
 
     return extensions
 
@@ -47,7 +49,7 @@ class StatusCodeError(Exception):
         super().__init__(f"{response.status_code} {response.reason}")
 
 
-_DEFAULT_FEATURES = _Features(0)
+_DEFAULT_FEATURES = EngineFeatures(0)
 
 
 def _typed[T](v: Any, t: type[T]) -> T:
@@ -64,7 +66,7 @@ class Engine:
         *,
         mode: Optional[SearchMode] = None,
         weight: float = 1.0,
-        features: _Features = _DEFAULT_FEATURES,
+        features: EngineFeatures = _DEFAULT_FEATURES,
         method: HttpMethod = "GET",
     ) -> None:
         """Initialize engine."""
@@ -86,7 +88,7 @@ class Engine:
 
         self.features = features
         if self._engine.paging:
-            self.features |= _Features.PAGING
+            self.features |= EngineFeatures.PAGING
 
         self._method = method
 
@@ -99,9 +101,14 @@ class Engine:
             else self._engine.search_url
         )
 
+    @property
+    def language_support(self) -> bool:
+        """Check if the engine has language support."""
+        return self._engine.language_support
+
     def supports_language(self, language: str) -> bool:
         """Check if the engine supports a query language."""
-        if not self._engine.language_support:
+        if not self.language_support:
             return True
         return self._engine.traits.is_locale_supported(language)
 
@@ -153,9 +160,14 @@ class Engine:
 
         return results
 
-    def __str__(self) -> str:
-        """Return name of engine in PascalCase."""
+    @property
+    def name(self) -> str:
+        """Return name of the engine in PascalCase."""
         return self._engine.name.title().replace(" ", "")
+
+    def __str__(self) -> str:
+        """Return name of engine."""
+        return self.name
 
 
 def _find_engine(name: str) -> dict:
@@ -167,25 +179,27 @@ def _find_engine(name: str) -> dict:
 
 
 _YEP = _find_engine("yep")
-_ENGINES = {
-    Engine(_find_engine("alexandria"), features=_Features.SITE),
+ENGINES = {
+    Engine(_find_engine("alexandria"), features=EngineFeatures.SITE),
     # TODO: check if bing does support quotation
-    Engine(_find_engine("bing"), weight=1.5, features=_Features(0)),
-    Engine(_find_engine("bing images"), weight=1.5, features=_Features.SITE),
+    Engine(_find_engine("bing"), weight=1.5, features=EngineFeatures(0)),
+    Engine(_find_engine("bing images"), weight=1.5, features=EngineFeatures.SITE),
     Engine(
         _find_engine("google"),
         weight=1.5,
-        features=_Features.QUOTES | _Features.SITE,
+        features=EngineFeatures.QUOTES | EngineFeatures.SITE,
     ),
     Engine(
         _find_engine("google images"),
         weight=1.5,
-        features=_Features.QUOTES | _Features.SITE,
+        features=EngineFeatures.QUOTES | EngineFeatures.SITE,
     ),
     Engine(_find_engine("google scholar"), weight=1.5),
-    Engine(_find_engine("mojeek"), weight=1.5, features=_Features.SITE),
+    Engine(_find_engine("mojeek"), weight=1.5, features=EngineFeatures.SITE),
     Engine(_find_engine("reddit"), weight=0.25, mode=SearchMode.WEB),
-    Engine(_find_engine("right dao"), features=_Features.QUOTES | _Features.SITE),
+    Engine(
+        _find_engine("right dao"), features=EngineFeatures.QUOTES | EngineFeatures.SITE
+    ),
     Engine(
         {
             "name": "sese",
@@ -196,11 +210,13 @@ _ENGINES = {
             "title_query": "信息/标题",
             "content_query": "信息/描述",
         },
-        features=_Features.SITE,
+        features=EngineFeatures.SITE,
     ),
-    Engine(_find_engine("stract"), features=_Features.QUOTES | _Features.SITE),
-    Engine(_YEP, features=_Features.SITE),
-    Engine(_YEP, mode=SearchMode.IMAGES, features=_Features.SITE),
+    Engine(
+        _find_engine("stract"), features=EngineFeatures.QUOTES | EngineFeatures.SITE
+    ),
+    Engine(_YEP, features=EngineFeatures.SITE),
+    Engine(_YEP, mode=SearchMode.IMAGES, features=EngineFeatures.SITE),
 }
 
 
@@ -208,14 +224,14 @@ def get_engines(search: Search) -> set[Engine]:
     """Return list of enabled engines for the language."""
     return {
         engine
-        for engine in _ENGINES
+        for engine in ENGINES
         if engine.mode == search.mode
         if engine.supports_language(search.lang)
         if _required_features(search)
         in engine.features
         | (
-            _Features.SITE
+            EngineFeatures.SITE
             if search.site == engine.url.netloc.removeprefix("www.")
-            else _Features(0)
+            else EngineFeatures(0)
         )
     }
