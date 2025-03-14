@@ -6,7 +6,7 @@
 <div class="options">
     {% for m in SearchMode %}
     <input type="submit" name="mode" id="{{ m.value }}" value="{{ m.value }}" hidden{% if m == mode %} disabled{% endif %}>
-    <label for="{{ m.value }}">{{ _(m) }}</label>
+    <label for="{{ m.value }}">{{ _(m | string) }}</label>
     {% endfor %}
     {% if page < 5 %}
     {% for i in range(1, 6) %}

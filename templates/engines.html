@@ -22,7 +22,7 @@
         {% for engine in ENGINES | sort(attribute="name") | sort(True, attribute="mode.name") %}
         <tr>
             <th scope="row">{{ engine.name }}</th>
-            <td>{{ _(engine.mode) }}</td>
+            <td>{{ _(engine.mode | string) }}</td>
             {% for feature in allEngineFeatures %}
             <td>{{ (feature in engine.features) | checkmark }}</td>
             {% endfor %}
