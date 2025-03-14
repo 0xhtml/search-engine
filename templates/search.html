@@ -29,7 +29,7 @@
 {% endblock %}
 
 {% block after %}
-<ul class="results" id="loading">
+<ol class="results" id="loading">
     {% for _ in range(10) %}
     {% if mode == SearchMode.IMAGES %}
     <li class="image">
@@ -55,7 +55,7 @@
     </li>
     {% endif %}
     {% endfor %}
-</ul>
+</ol>
 {% set url = url_for("results") | string + "?" + {"q": query, "mode": mode.value, "page": page} | urlencode %}
 <div id="target" hx-get="{{ url }}" hx-swap="outerHTML" hx-trigger="load" hx-indicator="#loading" hx-on::send-error="window.location.reload()"></div>
 {% if form_base != "htmx.html" %}

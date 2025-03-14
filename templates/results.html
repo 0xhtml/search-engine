@@ -1,7 +1,8 @@
 {% extends results_base %}
 
 {% block after %}
-<ul class="results" id="target">
+{% if results %}
+<ol class="results" id="target">
     {% for r in results %}
     <li class="{{ r.result_type() }}">
         {% if r.result_type() == "web" %}
@@ -23,7 +24,18 @@
         <small>{{ "{:.1f}".format(r.rating) }} - {{ r.engines | map("string") | sort | join(" ") }}</small>
     </li>
     {% endfor %}
-</ul>
+</ol>
+{% else %}
+<div class="no-results">
+    <p>{{ _("No results found.") }}</p>
+    <p>{{ _("Suggestions:") }}</p>
+    <ul>
+        <li>{{ _("Make sure all words are spelled correctly.") }}</li>
+        <li>{{ _("Try different keywords.") }}</li>
+        <li>{{ _("Try more general keywords.") }}</li>
+    </ul>
+</div>
+{% endif %}
 {% if engine_errors %}
 <div class="error">
     <h4>{{ _("Error") }}</h4>

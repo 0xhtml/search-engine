@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-03-14 01:17+0100\n"
+"POT-Creation-Date: 2025-03-14 02:50+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -18,7 +18,7 @@ msgstr ""
 "Generated-By: Babel 2.16.0\n"
 
 #: searchengine/__init__.py:51 searchengine/__init__.py:62
-#: templates/error.html:5 templates/results.html:29
+#: templates/error.html:5 templates/results.html:41
 msgid "Error"
 msgstr ""
 
@@ -89,5 +89,25 @@ msgstr ""
 
 #: templates/search.html:9
 msgid "Scholar"
+msgstr ""
+
+#: templates/results.html:30
+msgid "No results found."
+msgstr ""
+
+#: templates/results.html:31
+msgid "Suggestions:"
+msgstr ""
+
+#: templates/results.html:33
+msgid "Make sure all words are spelled correctly."
+msgstr ""
+
+#: templates/results.html:34
+msgid "Try different keywords."
+msgstr ""
+
+#: templates/results.html:35
+msgid "Try more general keywords."
 msgstr ""
 
