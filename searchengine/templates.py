@@ -4,9 +4,13 @@ import traceback
 from typing import Any
 from urllib.parse import ParseResult, unquote, urlencode
 
+import jinja2
 import markupsafe
 from jinja2 import pass_context
+from starlette.templating import Jinja2Templates
 
+from .common import SearchMode
+from .engines import ENGINES, EngineFeatures
 from .query import ParsedQuery
 from .sha import gen_sha
 
@@ -62,9 +66,28 @@ def _pretty_exc(exc: Exception) -> str:
     return traceback.format_exception_only(exc)[0]
 
 
-TEMPLATE_FILTER_MAP = {
-    "highlight": _highlight,
-    "pretty_url": _pretty_url,
-    "proxy": _proxy,
-    "pretty_exc": _pretty_exc,
-}
+def _checkmark(value: bool) -> str:
+    return "✅" if value else "❌"
+
+
+_ENV = jinja2.Environment(
+    autoescape=True,
+    loader=jinja2.FileSystemLoader("templates"),
+    lstrip_blocks=True,
+    trim_blocks=True,
+    extensions=["jinja2.ext.i18n"],
+)
+_ENV.globals["SearchMode"] = SearchMode
+_ENV.globals["allEngineFeatures"] = ~EngineFeatures(0)
+_ENV.globals["ENGINES"] = ENGINES
+_ENV.filters.update(
+    {
+        "highlight": _highlight,
+        "pretty_url": _pretty_url,
+        "proxy": _proxy,
+        "pretty_exc": _pretty_exc,
+        "checkmark": _checkmark,
+    }
+)
+
+TEMPLATES = Jinja2Templates(env=_ENV)

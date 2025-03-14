@@ -2,12 +2,11 @@
 
 import contextlib
 import gettext
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from http import HTTPStatus
-from typing import TYPE_CHECKING, TypedDict
+from typing import TypedDict
 
 import curl_cffi
-import jinja2
 from curl_cffi.requests import AsyncSession
 from starlette.applications import Starlette
 from starlette.exceptions import HTTPException
@@ -15,32 +14,19 @@ from starlette.requests import Request
 from starlette.responses import HTMLResponse, Response
 from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
-from starlette.templating import Jinja2Templates
 
 from .common import Search, SearchMode
 from .lang import detect_lang, parse_accept_language
 from .query import parse_query
 from .search import MAX_AGE, perform_search
 from .sha import gen_sha
-from .template_filter import TEMPLATE_FILTER_MAP
+from .templates import TEMPLATES
 
-_TRANSLATION = gettext.translation("messages", "locales", fallback=True)
-_TRANSLATION.install()
-if TYPE_CHECKING:
-    _ = _TRANSLATION.gettext
 
-_ENV = jinja2.Environment(
-    autoescape=True,
-    loader=jinja2.FileSystemLoader("templates"),
-    lstrip_blocks=True,
-    trim_blocks=True,
-    extensions=["jinja2.ext.i18n"],
-)
-_ENV.install_gettext_translations(_TRANSLATION)  # type: ignore[attr-defined]
-_ENV.globals["SearchMode"] = SearchMode
-_ENV.filters.update(TEMPLATE_FILTER_MAP)
-
-_TEMPLATES = Jinja2Templates(env=_ENV)
+def _translation(request: Request) -> Callable[[str], str]:
+    languages = parse_accept_language(request.headers.get("Accept-Language", ""))
+    translation = gettext.translation("messages", "locales", languages, fallback=True)
+    return translation.gettext
 
 
 class _State(TypedDict):
@@ -55,8 +41,9 @@ async def _lifespan(app: Starlette) -> AsyncIterator[_State]:
 
 def http_exception(request: Request, exc: HTTPException) -> Response:
     """Handle HTTP exceptions."""
+    _ = _translation(request)
     if "HX-Request" in request.headers:
-        return _TEMPLATES.TemplateResponse(
+        return TEMPLATES.TemplateResponse(
             request,
             "error.html",
             {
@@ -67,7 +54,7 @@ def http_exception(request: Request, exc: HTTPException) -> Response:
             headers={"HX-Retarget": "#target", "HX-Reswap": "outerHTML"},
         )
     if "text/html" in request.headers.get("Accept", ""):
-        return _TEMPLATES.TemplateResponse(
+        return TEMPLATES.TemplateResponse(
             request,
             "error.html",
             {
@@ -82,15 +69,17 @@ def http_exception(request: Request, exc: HTTPException) -> Response:
 
 def index(request: Request) -> HTMLResponse:
     """Return the start page."""
-    return _TEMPLATES.TemplateResponse(
+    _ = _translation(request)
+    return TEMPLATES.TemplateResponse(
         request,
         "index.html",
-        {"form_base": "base.html", "title": _("Search")},
-        headers={"Cache-Control": f"max-age={MAX_AGE}"},
+        {"_": _, "form_base": "base.html", "title": _("Search")},
+        headers={"Cache-Control": f"max-age={MAX_AGE}", "Vary": "Accept-Language"},
     )
 
 
 def _parse_params(request: Request) -> tuple[str, SearchMode, int]:
+    _ = _translation(request)
     try:
         query = request.query_params["q"].strip()
     except KeyError as e:
@@ -115,10 +104,11 @@ def search(request: Request) -> Response:
     """Perform a search and return the search result page."""
     query, mode, page = _parse_params(request)
 
-    return _TEMPLATES.TemplateResponse(
+    return TEMPLATES.TemplateResponse(
         request,
         "search.html",
         {
+            "_": _translation(request),
             "form_base": "htmx.html"
             if "HX-Request" in request.headers
             else "base.html",
@@ -128,7 +118,10 @@ def search(request: Request) -> Response:
             "page": page,
             "load": True,
         },
-        headers={"Vary": "HX-Request", "Cache-Control": f"max-age={MAX_AGE}"},
+        headers={
+            "Vary": "Accept-Language, HX-Request",
+            "Cache-Control": f"max-age={MAX_AGE}",
+        },
     )
 
 
@@ -147,10 +140,11 @@ async def results(request: Request) -> Response:
 
     rated_results, errors = await perform_search(request.state.session, search)
 
-    return _TEMPLATES.TemplateResponse(
+    return TEMPLATES.TemplateResponse(
         request,
         "results.html",
         {
+            "_": _translation(request),
             "form_base": None if "HX-Request" in request.headers else "base.html",
             "results_base": "htmx.html"
             if "HX-Request" in request.headers
@@ -201,8 +195,11 @@ async def img(request: Request) -> Response:
 
 def opensearch(request: Request) -> HTMLResponse:
     """Return opensearch.xml."""
-    return _TEMPLATES.TemplateResponse(
-        request, "opensearch.xml", media_type="application/xml"
+    return TEMPLATES.TemplateResponse(
+        request,
+        "opensearch.xml",
+        {"_": _translation(request)},
+        media_type="application/xml",
     )
 
 
