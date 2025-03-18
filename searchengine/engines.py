@@ -6,12 +6,12 @@ from types import ModuleType
 from typing import Any, Optional
 from urllib.parse import ParseResult, urlparse
 
+import curl_cffi
 import searx
 import searx.data
 import searx.enginelib
 import searx.engines
 import searx.result_types
-from curl_cffi.requests import AsyncSession, Response
 from curl_cffi.requests.session import HttpMethod
 
 from .common import Search, SearchMode
@@ -44,7 +44,7 @@ def _required_features(search: Search) -> EngineFeatures:
 class StatusCodeError(Exception):
     """Exception that is raised if a request to an engine doesn't return 2xx."""
 
-    def __init__(self, response: Response) -> None:
+    def __init__(self, response: curl_cffi.Response) -> None:
         """Initialize the exception w/ an Response object."""
         super().__init__(f"{response.status_code} {response.reason}")
 
@@ -112,7 +112,9 @@ class Engine:
             return True
         return self._engine.traits.is_locale_supported(language)
 
-    async def search(self, session: AsyncSession, search: Search) -> list[Result]:
+    async def search(
+        self, session: curl_cffi.AsyncSession, search: Search
+    ) -> list[Result]:
         """Perform a search and return the results."""
         params = self._engine.request(  # type: ignore[attr-defined]
             search.query_string(),

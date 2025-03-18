@@ -19,7 +19,7 @@ RUN apk add --no-cache sassc
 COPY scss scss
 RUN sassc -t compressed scss/style.scss style.css
 
-FROM python:3.12-alpine
+FROM python:3-alpine3.21
 RUN --mount=type=cache,target=/root/.cache/pip --mount=source=requirements.txt,dst=requirements.txt --mount=from=searxng,source=dist/searxng-1.0.0-py3-none-any.whl,dst=searxng-1.0.0-py3-none-any.whl pip install -r requirements.txt searxng-1.0.0-py3-none-any.whl
 COPY searchengine searchengine
 COPY templates templates

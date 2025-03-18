@@ -4,7 +4,7 @@ import asyncio
 import traceback
 
 import aiocache
-from curl_cffi.requests import AsyncSession
+import curl_cffi
 
 from .common import Search
 from .engines import Engine, get_engines
@@ -17,7 +17,7 @@ MAX_AGE = 60 * 60 * 24
 
 @aiocache.cached(noself=True, ttl=MAX_AGE)
 async def _engine_search(
-    session: AsyncSession, engine: Engine, search: Search
+    session: curl_cffi.AsyncSession, engine: Engine, search: Search
 ) -> tuple[list[Result], float]:
     loop = asyncio.get_running_loop()
     start = loop.time()
@@ -26,7 +26,7 @@ async def _engine_search(
 
 
 async def perform_search(
-    session: AsyncSession, search: Search
+    session: curl_cffi.AsyncSession, search: Search
 ) -> tuple[list[RatedResult], dict[Engine, BaseException]]:
     """Perform a search for the given query."""
     engines = get_engines(search)

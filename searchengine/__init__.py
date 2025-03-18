@@ -7,7 +7,6 @@ from http import HTTPStatus
 from typing import TypedDict
 
 import curl_cffi
-from curl_cffi.requests import AsyncSession
 from starlette.applications import Starlette
 from starlette.exceptions import HTTPException
 from starlette.requests import Request
@@ -30,12 +29,12 @@ def _translation(request: Request) -> Callable[[str], str]:
 
 
 class _State(TypedDict):
-    session: AsyncSession
+    session: curl_cffi.AsyncSession
 
 
 @contextlib.asynccontextmanager
 async def _lifespan(app: Starlette) -> AsyncIterator[_State]:
-    async with AsyncSession(impersonate="firefox") as session:
+    async with curl_cffi.AsyncSession(impersonate="firefox") as session:
         yield {"session": session}
 
 
@@ -195,7 +194,7 @@ async def img(request: Request) -> Response:
     if sha is None or gen_sha(url) != sha:
         raise HTTPException(401, "Unauthorized")
 
-    async with AsyncSession(impersonate="chrome") as session:
+    async with curl_cffi.AsyncSession(impersonate="chrome") as session:
         try:
             resp = await session.get(url, headers={"Accept": "image/*"})
         except curl_cffi.CurlError as e:
