@@ -2,7 +2,7 @@
 
 import pytest
 from searchengine.query import ParsedQuery
-from searchengine.template_filter import _highlight
+from searchengine.templates import _highlight
 
 
 @pytest.mark.parametrize(

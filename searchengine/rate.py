@@ -1,7 +1,7 @@
 """Module for rating results."""
 
 import heapq
-from typing import Self
+from typing import NamedTuple, Self
 
 import regex
 
@@ -13,7 +13,32 @@ with open("domains.txt") as file:
     _SPAM_DOMAINS = set(file)
 
 
-class RatedResult:
+class RatedResult(NamedTuple):
+    """Combined and rated result with a final rating and set of engines associated."""
+
+    result: Result
+    rating: float
+    engines: frozenset[Engine]
+
+    def result_type(self) -> str:
+        """Get the type of the result as a simple string."""
+        if isinstance(self.result, WebResult):
+            return "web"
+        if isinstance(self.result, ImageResult):
+            return "image"
+        assert isinstance(self.result, AnswerResult)
+        return "answer"
+
+    def __lt__(self, other: Self) -> bool:
+        """Compare two rated results by rating."""
+        self_answer = isinstance(self.result, AnswerResult)
+        other_answer = isinstance(other.result, AnswerResult)
+        if self_answer != other_answer:
+            return self_answer < other_answer
+        return self.rating < other.rating
+
+
+class CombinedResult:
     """Combined result with a rating and set of engines associated."""
 
     def __init__(self, result: Result, rating: float, engine: Engine) -> None:
@@ -69,56 +94,44 @@ class RatedResult:
 
         return True
 
-    def eval(self, lang: str) -> None:
+    def eval(self, lang: str) -> RatedResult:
         """Run additional result evaluation and update rating."""
         if lang != "zh" and regex.search(r"\p{Han}", self._text):
-            self.rating *= 0.5
+            rating = self.rating * 0.5
         else:
-            self.rating *= (is_lang(self._text, lang) + 1) / 2
+            rating = self.rating * (is_lang(self._text, lang) + 1) / 2
 
         host = self.result.url.netloc.removeprefix("www.")
         if host == "reddit.com":
-            self.rating *= 2
+            rating *= 2
         elif host in {"docs.python.org", "stackoverflow.com", "github.com"}:
-            self.rating *= 1.5
+            rating *= 1.5
         elif host.endswith(".wikipedia.org"):
-            self.rating *= 1.25
+            rating *= 1.25
         elif host in _SPAM_DOMAINS:
-            self.rating *= 0.5
+            rating *= 0.5
 
-    def result_type(self) -> str:
-        """Get the type of the result as a simple string."""
-        if isinstance(self.result, WebResult):
-            return "web"
-        if isinstance(self.result, ImageResult):
-            return "image"
-        assert isinstance(self.result, AnswerResult)
-        return "answer"
-
-    def __lt__(self, other: Self) -> bool:
-        """Compare two rated results by rating."""
-        self_answer = isinstance(self.result, AnswerResult)
-        other_answer = isinstance(other.result, AnswerResult)
-        if self_answer != other_answer:
-            return self_answer < other_answer
-        return self.rating < other.rating
+        return RatedResult(self.result, rating, frozenset(self.engines))
 
 
-def rate_results(results: dict[Engine, list[Result]], lang: str) -> list[RatedResult]:
-    """Combine results from all engines and rate them."""
-    rated_results: set[RatedResult] = set()
+def combine_results(results: dict[Engine, list[Result]]) -> set[CombinedResult]:
+    """Combine results from all engines."""
+    combined_results = set()
 
     for engine, result_list in results.items():
         for i, result in enumerate(result_list):
             rating = (1.25**-i) * 10
-            for rated_result in rated_results:
-                if rated_result.result == result:
-                    rated_result.update(result, rating, engine)
+            for combined_result in combined_results:
+                if combined_result.result == result:
+                    combined_result.update(result, rating, engine)
                     break
             else:
-                rated_results.add(RatedResult(result, rating, engine))
+                combined_results.add(CombinedResult(result, rating, engine))
 
-    for rated_result in rated_results:
-        rated_result.eval(lang)
+    return combined_results
 
+
+def rate_results(results: dict[Engine, list[Result]], lang: str) -> list[RatedResult]:
+    """Combine results from all engines and rate them."""
+    rated_results = {result.eval(lang) for result in combine_results(results)}
     return heapq.nlargest(12, rated_results)
