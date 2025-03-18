@@ -78,7 +78,7 @@ _ENV = jinja2.Environment(
     extensions=["jinja2.ext.i18n"],
 )
 _ENV.globals["SearchMode"] = SearchMode
-_ENV.globals["allEngineFeatures"] = ~EngineFeatures(0)
+_ENV.globals["EngineFeatures"] = EngineFeatures
 _ENV.globals["ENGINES"] = ENGINES
 _ENV.filters.update(
     {
