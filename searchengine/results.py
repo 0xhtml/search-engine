@@ -42,7 +42,7 @@ class WebResult(NamedTuple):
         """Parse a web result from a dict returned by searx."""
         return cls(_parse_url(result), _parse_title(result), _parse_content(result))
 
-    def __eq__(self, other: Self) -> bool:
+    def __eq__(self, other: object) -> bool:
         """Check if two results are equal based on URL."""
         return _result_url_eq(self, other)
 
@@ -72,7 +72,7 @@ class ImageResult(NamedTuple):
             urlparse(unescape(result.get("thumbnail_src", result["img_src"]))),
         )
 
-    def __eq__(self, other: Self) -> bool:
+    def __eq__(self, other: object) -> bool:
         """Check if two results are equal based on URL."""
         return _result_url_eq(self, other)
 
@@ -109,7 +109,7 @@ def _comparable_url(url: ParseResult) -> ParseResult:
     )
 
 
-def _result_url_eq(self: WebResult | ImageResult, other: Result) -> bool:
+def _result_url_eq(self: WebResult | ImageResult, other: object) -> bool:
     if not isinstance(other, WebResult) and not isinstance(other, ImageResult):
         return False
     return _comparable_url(self.url) == _comparable_url(other.url)

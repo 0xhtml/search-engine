@@ -61,26 +61,27 @@ class CombinedResult:
                 self.result.url, self.result.title, self.result.text
             )
 
-        if len(self.result.text or "") < len(result.text or ""):
+        if len(self.result.text) < len(result.text):
             self.result = self.result._replace(text=result.text)
-
-        if result.url.scheme == "https" and self.result.url.scheme != "https":
-            self.result = self.result._replace(
-                url=self.result.url._replace(scheme="https")
-            )
 
         if engine.weight > max_weight or (
             engine.weight == max_weight
             and len(self.result.url.geturl()) > len(result.url.geturl())
         ):
             self.result = self.result._replace(url=result.url)
+        elif result.url.scheme == "https":
+            self.result = self.result._replace(
+                url=self.result.url._replace(scheme="https")
+            )
 
-        if len(self.result.title) < len(result.title):
-            self.result = self.result._replace(title=result.title)
+        if not isinstance(self.result, AnswerResult):
+            assert not isinstance(result, AnswerResult)
+            if len(self.result.title) < len(result.title):
+                self.result = self.result._replace(title=result.title)
 
         if isinstance(self.result, ImageResult):
             assert isinstance(result, ImageResult)
-            if self.result.src is None or engine.weight > max_weight:
+            if engine.weight > max_weight:
                 self.result = self.result._replace(src=result.src)
 
         if engine not in self.engines:
@@ -88,7 +89,8 @@ class CombinedResult:
             self.engines.add(engine)
 
         assert self._text
-        self._text += " " + result.title
+        if not isinstance(result, AnswerResult):
+            self._text += " " + result.title
         if result.text is not None:
             self._text += " " + result.text
 
@@ -116,7 +118,7 @@ class CombinedResult:
 
 def combine_results(results: dict[Engine, list[Result]]) -> set[CombinedResult]:
     """Combine results from all engines."""
-    combined_results = set()
+    combined_results: set[CombinedResult] = set()
 
     for engine, result_list in results.items():
         for i, result in enumerate(result_list):
