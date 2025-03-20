@@ -6,12 +6,20 @@ from urllib.parse import ParseResult, urlparse
 
 import searx.result_types
 
+_DEFAULT_PORTS = {
+    "http": 80,
+    "https": 443,
+}
+
 
 def _parse_url(result: dict) -> ParseResult:
     assert "url" in result
     assert isinstance(result["url"], str)
     assert result["url"]
-    return urlparse(result["url"])
+    url = urlparse(result["url"])
+    if url.scheme in _DEFAULT_PORTS and url.port == _DEFAULT_PORTS[url.scheme]:
+        url = url._replace(netloc=url.netloc.removesuffix(f":{url.port}"))
+    return url
 
 
 def _parse_title(result: dict) -> str:
