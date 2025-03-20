@@ -4,9 +4,9 @@ import traceback
 from typing import Any
 from urllib.parse import ParseResult, unquote, urlencode
 
+import idna
 import jinja2
 import markupsafe
-from jinja2 import pass_context
 from starlette.templating import Jinja2Templates
 
 from .common import SearchMode
@@ -50,10 +50,15 @@ def _highlight(string: str, query: ParsedQuery) -> markupsafe.Markup:
 
 
 def _pretty_url(url: ParseResult) -> markupsafe.Markup:
-    return markupsafe.escape(url._replace(path=unquote(url.path)).geturl())
+    return markupsafe.escape(
+        url._replace(
+            netloc=idna.decode(url.netloc),
+            path=unquote(url.path),
+        ).geturl()
+    )
 
 
-@pass_context
+@jinja2.pass_context
 def _proxy(ctx: dict[str, Any], url: ParseResult) -> str:
     return (
         str(ctx["request"].url_for("img"))
