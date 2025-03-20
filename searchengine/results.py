@@ -1,15 +1,18 @@
 """Module containing the Result types."""
 
+import socket
 from html import unescape
 from typing import NamedTuple, Optional, Self
 from urllib.parse import ParseResult, urlparse
 
 import searx.result_types
 
-_DEFAULT_PORTS = {
-    "http": 80,
-    "https": 443,
-}
+
+def _default_port(scheme: str) -> Optional[int]:
+    try:
+        return socket.getservbyname(scheme)
+    except OSError:
+        return None
 
 
 def _parse_url(result: dict) -> ParseResult:
@@ -17,7 +20,7 @@ def _parse_url(result: dict) -> ParseResult:
     assert isinstance(result["url"], str)
     assert result["url"]
     url = urlparse(result["url"])
-    if url.scheme in _DEFAULT_PORTS and url.port == _DEFAULT_PORTS[url.scheme]:
+    if url.port is not None and url.port == _default_port(url.scheme):
         url = url._replace(netloc=url.netloc.removesuffix(f":{url.port}"))
     return url
 
@@ -102,11 +105,12 @@ class AnswerResult(NamedTuple):
 
 type Result = WebResult | ImageResult | AnswerResult
 
+_COMPARABLE_SCHEMES = {"https": "http"}
+
 
 def _comparable_url(url: ParseResult) -> ParseResult:
-    assert url.scheme in {"http", "https"}
     return url._replace(
-        scheme="http",
+        scheme=_COMPARABLE_SCHEMES.get(url.scheme, url.scheme),
         netloc=url.netloc.removeprefix("www.").replace(
             ".m.wikipedia.org", ".wikipedia.org"
         ),
