@@ -12,7 +12,6 @@ import searx.data
 import searx.enginelib
 import searx.engines
 import searx.result_types
-from curl_cffi.requests.session import HttpMethod
 
 from .common import Search, SearchMode
 from .results import Result, result_from_searx
@@ -67,7 +66,6 @@ class Engine:
         mode: Optional[SearchMode] = None,
         weight: float = 1.0,
         features: EngineFeatures = _DEFAULT_FEATURES,
-        method: HttpMethod = "GET",
     ) -> None:
         """Initialize engine."""
         self._engine = _typed(searx.engines.load_engine(settings), ModuleType)
@@ -89,8 +87,6 @@ class Engine:
         self.features = features
         if self._engine.paging:
             self.features |= EngineFeatures.PAGING
-
-        self._method = method
 
     @property
     def url(self) -> ParseResult:
@@ -123,7 +119,7 @@ class Engine:
                 "data": None,
                 "headers": {},
                 "language": search.lang,
-                "method": self._method,
+                "method": "GET",
                 "pageno": search.page,
                 "safesearch": 2,
                 "searxng_locale": search.lang,
