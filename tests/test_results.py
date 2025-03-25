@@ -63,5 +63,6 @@ def test_result_eq(a: Result, b: Result, expected: bool) -> None:
 def test_result_from_searx(result: dict, expected: Result) -> None:
     """Test the result_from_searx function."""
     parsed = result_from_searx(result)
+    assert parsed is not None
     assert type(parsed) is type(expected)
     assert tuple(parsed) == tuple(expected)

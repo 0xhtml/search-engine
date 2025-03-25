@@ -3,7 +3,7 @@
 from enum import Flag, auto
 from http import HTTPStatus
 from types import ModuleType
-from typing import Any, Optional
+from typing import Optional
 from urllib.parse import ParseResult, urlparse
 
 import curl_cffi
@@ -52,7 +52,7 @@ class StatusCodeError(Exception):
 _DEFAULT_FEATURES = EngineFeatures(0)
 
 
-def _typed[T](v: Any, t: type[T]) -> T:
+def _typed[T](v: object, t: type[T]) -> T:
     assert isinstance(v, t)
     return v
 

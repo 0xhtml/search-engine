@@ -35,8 +35,8 @@ def test_rated_result_lt(
     results: tuple[Result, Result], values: tuple[int, int], expected: _Cmp
 ) -> None:
     """Test the __lt__ method of the RatedResult class."""
-    a = RatedResult(results[0], values[0], _ENGINE)
-    b = RatedResult(results[1], values[1], _ENGINE)
+    a = RatedResult(results[0], values[0], frozenset({_ENGINE}))
+    b = RatedResult(results[1], values[1], frozenset({_ENGINE}))
 
     assert not a < a
     assert not b < b

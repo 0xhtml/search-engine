@@ -38,8 +38,9 @@ async def _lifespan(app: Starlette) -> AsyncIterator[_State]:
         yield {"session": session}
 
 
-def http_exception(request: Request, exc: HTTPException) -> Response:
+def http_exception(request: Request, exc: Exception) -> Response:
     """Handle HTTP exceptions."""
+    assert isinstance(exc, HTTPException)
     _ = _translation(request)
     if "HX-Request" in request.headers:
         return TEMPLATES.TemplateResponse(

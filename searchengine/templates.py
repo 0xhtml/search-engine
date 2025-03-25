@@ -67,7 +67,7 @@ def _proxy(ctx: dict[str, Any], url: ParseResult) -> str:
     )
 
 
-def _pretty_exc(exc: Exception) -> str:
+def _pretty_exc(exc: BaseException) -> str:
     return traceback.format_exception_only(exc)[0]
 
 
