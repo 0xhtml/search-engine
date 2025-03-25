@@ -96,6 +96,8 @@ def _parse_params(request: Request) -> tuple[str, SearchMode, int]:
         page = int(request.query_params["page"])
     except (ValueError, KeyError) as e:
         raise HTTPException(400, _("Invalid page number")) from e
+    if page > 9:
+        raise HTTPException(400, _("Invalid page number"))
 
     return query, mode, page
 
