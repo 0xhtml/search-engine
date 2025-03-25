@@ -54,6 +54,7 @@ def _pretty_url(url: ParseResult) -> markupsafe.Markup:
         url._replace(
             netloc=idna.decode(url.netloc),
             path=unquote(url.path),
+            query=unquote(url.query)
         ).geturl()
     )
 
