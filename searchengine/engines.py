@@ -179,20 +179,12 @@ def _find_engine(name: str) -> dict:
 _YEP = _find_engine("yep")
 ENGINES = {
     Engine(_find_engine("alexandria"), features=EngineFeatures.SITE),
-    # TODO: check if bing does support quotation
-    Engine(_find_engine("bing"), weight=1.5, features=EngineFeatures(0)),
-    Engine(_find_engine("bing images"), weight=1.5, features=EngineFeatures.SITE),
+    Engine(_find_engine("bing"), weight=1.5),
     Engine(
         _find_engine("google"),
         weight=1.5,
         features=EngineFeatures.QUOTES | EngineFeatures.SITE,
     ),
-    Engine(
-        _find_engine("google images"),
-        weight=1.5,
-        features=EngineFeatures.QUOTES | EngineFeatures.SITE,
-    ),
-    Engine(_find_engine("google scholar"), weight=1.5),
     Engine(_find_engine("mojeek"), weight=1.5, features=EngineFeatures.SITE),
     Engine(_find_engine("reddit"), weight=0.25, mode=SearchMode.WEB),
     Engine(
@@ -211,10 +203,18 @@ ENGINES = {
         features=EngineFeatures.SITE,
     ),
     Engine(
-        _find_engine("stract"), features=EngineFeatures.QUOTES | EngineFeatures.SITE
+        _find_engine("stract"),
+        features=EngineFeatures.QUOTES | EngineFeatures.SITE,
     ),
     Engine(_YEP, features=EngineFeatures.SITE),
+    Engine(_find_engine("google scholar"), weight=1.5),
+    Engine(_find_engine("bing images"), weight=1.5, features=EngineFeatures.SITE),
     Engine(_YEP, mode=SearchMode.IMAGES, features=EngineFeatures.SITE),
+    Engine(
+        _find_engine("google images"),
+        weight=1.5,
+        features=EngineFeatures.QUOTES | EngineFeatures.SITE,
+    ),
 }
 
 
