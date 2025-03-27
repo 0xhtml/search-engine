@@ -1,4 +1,4 @@
-@import "normalize.scss";
+@import "modern-normalize.scss";
 
 @mixin colors($bg, $fn) {
     --bg: #{$bg};
@@ -7,7 +7,6 @@
     --half: #{call($fn, $bg, 53)};
     --fg: #{call($fn, $bg, 80)};
 }
-
 
 :root {
     @include colors(#fbfbfb, get-function(darken));
@@ -18,11 +17,9 @@
 html {
     background: var(--bg);
     color: var(--fg);
-    font-family: arial, sans-serif;
 }
 
 body {
-    box-sizing: border-box;
     margin: 0 auto;
     max-width: 40em;
     padding: 0 1em;
@@ -40,7 +37,6 @@ img {
 
     background: $bg;
     border-radius: $spacing;
-    box-sizing: border-box;
     color: lighten($bg, 52);
     margin: 1em;
     padding: $spacing - $line-spacing $spacing;
@@ -171,7 +167,6 @@ img {
         }
 
         & > h3 {
-            display: block;
             font-weight: normal;
             margin: 0 0 0.2em;
             padding: 0.3em 0 0;
@@ -224,22 +219,16 @@ img {
 }
 
 #loading {
-    display: none;
-
-    &.htmx-request {
-        display: inherit;
-
-        & + #target {
-            display: none;
-        }
+    &:not(.htmx-request), &.htmx-request + #target {
+        display: none;
     }
 
     & span {
         color: transparent !important;
         border-radius: .25em;
         display: block;
-        height: calc(round(1lh, 1px) * .85);
-        padding: calc(round(1lh, 1px) * .075) 0;
+        height: 1.03lh;
+        padding: calc(round(.59lh, .5px) - .515lh) 0;
         background: var(--muted);
         background-clip: content-box;
         max-width: 100%;
