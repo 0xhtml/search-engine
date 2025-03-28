@@ -8,7 +8,7 @@ import ply.lex
 class ParsedQuery(NamedTuple):
     """Query parsed into actual query and extra data."""
 
-    words: list[str]
+    words: tuple[str, ...]
     lang: Optional[str]
     site: Optional[str]
 
@@ -49,7 +49,7 @@ def parse_query(query: str) -> ParsedQuery:
     """Parse a search query into a ParsedQuery."""
     _LEXER.input(query)
 
-    words = []
+    words: tuple[str, ...] = ()
     lang = None
     site = None
 
@@ -59,6 +59,6 @@ def parse_query(query: str) -> ParsedQuery:
         elif token.type == "SITE":
             site = token.value
         else:
-            words.append(token.value)
+            words += (token.value,)
 
     return ParsedQuery(words, lang, site)

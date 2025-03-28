@@ -29,7 +29,7 @@ class SearchMode(Enum):
 class Search(NamedTuple):
     """A search request."""
 
-    words: list[str]
+    words: tuple[str, ...]
     lang: str
     site: Optional[str]
     mode: SearchMode
