@@ -4,7 +4,6 @@ from enum import Flag, auto
 from http import HTTPStatus
 from types import ModuleType
 from typing import Optional
-from urllib.parse import ParseResult, urlparse
 
 import curl_cffi
 import searx
@@ -15,6 +14,7 @@ import searx.result_types
 
 from .common import Search, SearchMode
 from .results import Result, result_from_searx
+from .url import URL
 
 
 class EngineFeatures(Flag):
@@ -89,9 +89,9 @@ class Engine:
             self.features |= EngineFeatures.PAGING
 
     @property
-    def url(self) -> ParseResult:
+    def url(self) -> URL:
         """Return URL of the engine."""
-        return urlparse(
+        return URL.parse(
             self._engine.about["website"]
             if "website" in self._engine.about
             else self._engine.search_url
@@ -140,13 +140,7 @@ class Engine:
 
         assert response.text
 
-        class Url(ParseResult):
-            @property
-            def host(self) -> str:
-                return self.netloc
-
-        # TODO: wrap response instead
-        response.url = Url(*urlparse(response.url))
+        response.url = URL.parse(response.url)
         response.search_params = params
 
         results: list[Result] = []

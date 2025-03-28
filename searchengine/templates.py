@@ -2,7 +2,7 @@
 
 import traceback
 from typing import Any
-from urllib.parse import ParseResult, unquote, urlencode
+from urllib.parse import unquote, urlencode
 
 import idna
 import jinja2
@@ -13,6 +13,7 @@ from .common import SearchMode
 from .engines import ENGINES, EngineFeatures
 from .query import ParsedQuery
 from .sha import gen_sha
+from .url import URL
 
 
 def _highlight(string: str, query: ParsedQuery) -> markupsafe.Markup:
@@ -49,7 +50,7 @@ def _highlight(string: str, query: ParsedQuery) -> markupsafe.Markup:
     return result
 
 
-def _pretty_url(url: ParseResult) -> markupsafe.Markup:
+def _pretty_url(url: URL) -> markupsafe.Markup:
     return markupsafe.escape(
         url._replace(
             netloc=idna.decode(url.netloc),
@@ -60,7 +61,7 @@ def _pretty_url(url: ParseResult) -> markupsafe.Markup:
 
 
 @jinja2.pass_context
-def _proxy(ctx: dict[str, Any], url: ParseResult) -> str:
+def _proxy(ctx: dict[str, Any], url: URL) -> str:
     return (
         str(ctx["request"].url_for("img"))
         + "?"

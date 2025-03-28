@@ -1,28 +1,18 @@
 """Module containing the Result types."""
 
-import socket
 from html import unescape
 from typing import NamedTuple, Optional, Self
-from urllib.parse import ParseResult, urlparse
 
 import searx.result_types
 
-
-def _default_port(scheme: str) -> Optional[int]:
-    try:
-        return socket.getservbyname(scheme)
-    except OSError:
-        return None
+from .url import URL
 
 
-def _parse_url(result: dict) -> ParseResult:
+def _parse_url(result: dict) -> URL:
     assert "url" in result
     assert isinstance(result["url"], str)
     assert result["url"]
-    url = urlparse(result["url"])
-    if url.port is not None and url.port == _default_port(url.scheme):
-        url = url._replace(netloc=url.netloc.removesuffix(f":{url.port}"))
-    return url
+    return URL.parse(result["url"])
 
 
 def _parse_title(result: dict) -> str:
@@ -44,7 +34,7 @@ def _parse_content(result: dict) -> str:
 class WebResult(NamedTuple):
     """An image result consisting of title, url, text and src."""
 
-    url: ParseResult
+    url: URL
     title: str
     text: str
 
@@ -61,10 +51,10 @@ class WebResult(NamedTuple):
 class ImageResult(NamedTuple):
     """An image result consisting of title, url, text and src."""
 
-    url: ParseResult
+    url: URL
     title: str
     text: str
-    src: ParseResult
+    src: URL
 
     @classmethod
     def from_searx(cls, result: dict) -> Self:
@@ -80,7 +70,7 @@ class ImageResult(NamedTuple):
             _parse_url(result),
             _parse_title(result),
             _parse_content(result),
-            urlparse(unescape(result.get("thumbnail_src", result["img_src"]))),
+            URL.parse(unescape(result.get("thumbnail_src", result["img_src"]))),
         )
 
     def __eq__(self, other: object) -> bool:
@@ -91,7 +81,7 @@ class ImageResult(NamedTuple):
 class AnswerResult(NamedTuple):
     """An answer result consisting of answer and url."""
 
-    url: ParseResult
+    url: URL
     text: str
 
     @classmethod
@@ -100,31 +90,16 @@ class AnswerResult(NamedTuple):
         assert result.url is not None
         assert result.url
         assert result.answer
-        return cls(urlparse(result.url), result.answer)
+        return cls(URL.parse(result.url), result.answer)
 
 
 type Result = WebResult | ImageResult | AnswerResult
-
-_COMPARABLE_SCHEMES = {"https": "http"}
-
-
-def _comparable_url(url: ParseResult) -> ParseResult:
-    return url._replace(
-        scheme=_COMPARABLE_SCHEMES.get(url.scheme, url.scheme),
-        netloc=url.netloc.removeprefix("www.").replace(
-            ".m.wikipedia.org", ".wikipedia.org"
-        ),
-        path=url.path.replace("%E2%80%93", "-")
-        if url.netloc.endswith(".wikipedia.org")
-        else url.path,
-        fragment="",
-    )
 
 
 def _result_url_eq(self: WebResult | ImageResult, other: object) -> bool:
     if not isinstance(other, WebResult) and not isinstance(other, ImageResult):
         return False
-    return _comparable_url(self.url) == _comparable_url(other.url)
+    return self.url == other.url
 
 
 def result_from_searx(result: dict | searx.result_types.Answer) -> Optional[Result]:
