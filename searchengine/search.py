@@ -9,7 +9,7 @@ import curl_cffi
 from .common import Search
 from .engines import Engine, get_engines
 from .metrics import metric_errors, metric_success
-from .rate import RatedResult, rate_results
+from .rate import RatedResult, rate_results, CombinedResult, combine_engine_results
 from .results import Result
 
 MAX_AGE = 60 * 60 * 24
@@ -31,7 +31,7 @@ async def perform_search(
     """Perform a search for the given query."""
     engines = get_engines(search)
 
-    results: dict[Engine, list[Result]] = {}
+    results: set[CombinedResult] = set()
     errors: dict[Engine, BaseException] = {}
 
     tasks = {
@@ -39,22 +39,29 @@ async def perform_search(
         for engine in engines
     }
 
+    def callback(task: asyncio.Task) -> None:
+        engine = tasks[task]
+        if (exc := task.exception()) is None:
+            engine_results, time = task.result()
+            metric_success(engine, len(engine_results), time)
+            combine_engine_results(session, engine, engine_results, results)
+        else:
+            traceback.print_exception(exc)
+            errors[engine] = exc
+
+    for task in tasks:
+        task.add_done_callback(callback)
+
     prio_tasks = {task for task, engine in tasks.items() if engine.weight > 1}
     await asyncio.wait(prio_tasks)
     completed = {task for task in prio_tasks if task.exception() is None}
     max_time = max(task.result()[1] for task in completed) if completed else 0
 
     await asyncio.wait(tasks.keys(), timeout=max(max_time * 0.5, 1 - max_time))
+
     for task, engine in tasks.items():
-        if task.done():
-            if (exc := task.exception()) is None:
-                engine_results, time = task.result()
-                metric_success(engine, len(engine_results), time)
-                results[engine] = engine_results
-            else:
-                traceback.print_exception(exc)
-                errors[engine] = exc
-        else:
+        if not task.done():
+            task.remove_done_callback(callback)
             task.cancel()
             errors[engine] = TimeoutError()
 

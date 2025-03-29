@@ -1,0 +1,104 @@
+.highlight {
+    border-radius: .25em;
+    padding: .5em;
+    margin: .5em 1px;
+    border: solid 1px var(--muted);
+
+    background: #fff;
+    color: #111;
+
+    & > pre {
+        line-height: 125%;
+        margin: 0;
+    }
+
+    & .hll {
+        background-color: #ffffcc;
+    }
+
+    & .err {
+        color: #A61717;
+        background-color: #E3D2D2;
+    }
+
+    & .c, & .ch, & .cm, & .cp, & .cpf, & .c1, & .cs {
+        color: #080;
+        font-style: italic;
+    }
+
+    & .k, & .kc, & .kd, & .kn, & .kp, & .kr, & .kt {
+        color: #353580;
+        font-weight: bold;
+    }
+
+    & .m, & .nf, & .mb, & .mf, & .mh, & .mi, & .mo, & .fm, & .il {
+        color: #2C2CFF;
+    }
+
+    & .s, & .sa, & .sb, & .sc, & .dl, & .sd, & .s2, & .se, & .sh, & .si, & .sx, & .sr, & .s1, & .ss {
+        color: #7A2424;
+    }
+
+    & .nx {
+        color: #BE646C;
+    }
+
+    & .nv, & .vc, & .vi, & .vm {
+        color: #35BABA;
+        font-weight: bold;
+    }
+
+    & .w {
+        color: #BBB;
+    }
+
+    & .vg {
+        color: #B5565E;
+    }
+
+    @media (prefers-color-scheme:dark) {
+        background: #232629;
+        color: #CCC;
+
+        & .hll {
+            background-color: #49483e;
+        }
+
+        & .c, & .ch, & .cm, & .cp, & .cpf, & .c1, & .cs {
+            color: #777;
+        }
+
+        & .k, & .kc, & .kd, & .kn, & .kp, & .kr, & .kt {
+            color: #7686BB;
+        }
+
+        & .m, & .mb, & .mf, & .mh, & .mi, & .mo {
+            color: #4FB8CC;
+        }
+
+        & .s, & .sa, & .sb, & .sc, & .dl, & .sd, & .s2, & .se, & .sh, & .si, & .sx, & .sr, & .s1, & .ss {
+            color: #51CC99;
+        }
+
+        & .nf, & .fm {
+            color: #6A6AFF;
+        }
+
+        & .nx {
+            color: #E2828E;
+        }
+
+        & .nv, & .vc, & .vi, & .vm {
+            color: #7AB4DB;
+        }
+
+        & .vg {
+            color: #BE646C;
+            font-weight: bold;
+        }
+
+        & .il {
+            color: #4FB8CC;
+        }
+    }
+}

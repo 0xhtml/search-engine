@@ -1,13 +1,16 @@
 """Module for rating results."""
 
+import asyncio
 import heapq
-from typing import NamedTuple, Self
+from typing import NamedTuple, Optional, Self
 
+import curl_cffi
 import regex
 
 from .engines import Engine
 from .lang import is_lang
 from .results import AnswerResult, ImageResult, Result, WebResult
+from .snippet import Snippet
 
 with open("domains.txt") as file:
     _SPAM_DOMAINS = set(file)
@@ -19,6 +22,7 @@ class RatedResult(NamedTuple):
     result: Result
     rating: float
     engines: frozenset[Engine]
+    snippet: Optional[Snippet]
 
     def result_type(self) -> str:
         """Get the type of the result as a simple string."""
@@ -46,10 +50,16 @@ class CombinedResult:
         self.result = result
         self.rating = rating * engine.weight
         self.engines = {engine}
+        self.task: Optional[asyncio.Task[Optional[Snippet]]] = None
 
         self._text = result.text
         if isinstance(result, WebResult | ImageResult):
             self._text += " " + result.title
+
+    def start_loading_snippet(self, session: curl_cffi.AsyncSession) -> None:
+        """Start loading snippet asynchronously."""
+        if self.task is None:
+            self.task = asyncio.create_task(Snippet.load(session, self.result.url))
 
     def update(self, result: Result, rating: float, engine: Engine) -> bool:
         """Update rated result by combining the result from another engine."""
@@ -113,27 +123,46 @@ class CombinedResult:
         elif host in _SPAM_DOMAINS:
             rating *= 0.5
 
-        return RatedResult(self.result, rating, frozenset(self.engines))
+        if self.task is None:
+            snippet = None
+        elif self.task.done():
+            snippet = self.task.result()
+        else:
+            self.task.cancel()
+            snippet = None
+
+        return RatedResult(self.result, rating, frozenset(self.engines), snippet)
+
+    def __lt__(self, other: Self) -> bool:
+        """Compare two combined results by rating."""
+        self_answer = isinstance(self.result, AnswerResult)
+        other_answer = isinstance(other.result, AnswerResult)
+        if self_answer != other_answer:
+            return self_answer < other_answer
+        return self.rating < other.rating
 
 
-def combine_results(results: dict[Engine, list[Result]]) -> set[CombinedResult]:
-    """Combine results from all engines."""
-    combined_results: set[CombinedResult] = set()
+def combine_engine_results(
+    session: curl_cffi.AsyncSession,
+    engine: Engine,
+    results: list[Result],
+    combined_results: set[CombinedResult],
+) -> None:
+    """Combine results from a single engine into combined_results."""
+    for i, result in enumerate(results):
+        rating = (1.25**-i) * 10
+        for combined_result in combined_results:
+            if combined_result.result == result:
+                combined_result.update(result, rating, engine)
+                break
+        else:
+            combined_results.add(CombinedResult(result, rating, engine))
 
-    for engine, result_list in results.items():
-        for i, result in enumerate(result_list):
-            rating = (1.25**-i) * 10
-            for combined_result in combined_results:
-                if combined_result.result == result:
-                    combined_result.update(result, rating, engine)
-                    break
-            else:
-                combined_results.add(CombinedResult(result, rating, engine))
-
-    return combined_results
+    for combined_result in heapq.nlargest(12, combined_results):
+        combined_result.start_loading_snippet(session)
 
 
-def rate_results(results: dict[Engine, list[Result]], lang: str) -> list[RatedResult]:
+def rate_results(results: set[CombinedResult], lang: str) -> list[RatedResult]:
     """Combine results from all engines and rate them."""
-    rated_results = {result.eval(lang) for result in combine_results(results)}
+    rated_results = {result.eval(lang) for result in results}
     return heapq.nlargest(12, rated_results)

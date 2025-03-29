@@ -13,6 +13,9 @@
         {% if r.result.text %}
         <p>{{ r.result.text | highlight(parsed_query) }}</p>
         {% endif %}
+        {% if r.snippet %}
+        {{ r.snippet.render() | safe }}
+        {% endif %}
         {% elif r.result_type() == "image" %}
         <a href="{{ r.result.url.geturl() }}">
             <img src="{{ r.result.src | proxy }}" title="{{ r.result.title }}"{% if r.result.text %} alt="{{ r.result.text }}"{% endif %}>
