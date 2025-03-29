@@ -203,11 +203,10 @@ async def img(request: Request) -> Response:
     if sha is None or gen_sha(url) != sha:
         raise HTTPException(401, "Unauthorized")
 
-    async with curl_cffi.AsyncSession(impersonate="chrome") as session:
-        try:
-            resp = await session.get(url, headers={"Accept": "image/*"})
-        except curl_cffi.CurlError as e:
-            raise HTTPException(500, str(e)) from e
+    try:
+        resp = await request.state.session.get(url, headers={"Accept": "image/*"})
+    except curl_cffi.CurlError as e:
+        raise HTTPException(500, str(e)) from e
 
     if not HTTPStatus(resp.status_code).is_success:
         raise HTTPException(resp.status_code, resp.reason)
