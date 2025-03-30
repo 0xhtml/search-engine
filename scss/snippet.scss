@@ -3,6 +3,7 @@
     padding: .5em;
     margin: .5em 1px;
     border: solid 1px var(--muted);
+    font-size: .875em;
 
     background: #fff;
     color: #111;
@@ -10,6 +11,7 @@
     & > pre {
         line-height: 125%;
         margin: 0;
+        overflow: scroll;
     }
 
     & .hll {
