@@ -8,5 +8,6 @@ MarkupSafe==3.0.2
 ply==3.11
 Pygments==2.19.1
 regex==2024.11.6
+rfc3986==2.0.0
 starlette==0.46.1
 uvicorn==0.34.0

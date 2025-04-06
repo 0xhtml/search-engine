@@ -21,7 +21,7 @@ class Snippet(NamedTuple):
     @classmethod
     async def load(cls, session: curl_cffi.AsyncSession, url: URL) -> Optional[Self]:
         """Get a snippet for a search result."""
-        if url.netloc != "stackoverflow.com":
+        if url.host != "stackoverflow.com":
             return None
 
         response = await session.get(url.geturl())

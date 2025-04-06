@@ -1,13 +1,12 @@
 """Tests for the result types."""
 
-from urllib.parse import urlparse
-
 import pytest
 import searx.result_types
 from searchengine.results import (AnswerResult, ImageResult, Result, WebResult,
                                   result_from_searx)
+from searchengine.url import URL
 
-_URL = urlparse("http://example.com")
+_URL = URL.parse("http://example.com/")
 _WEB = WebResult(_URL, "web: title", "web: text")
 _IMAGE = ImageResult(_URL, "image: title", "image: text", _URL)
 _ANSWER = AnswerResult(_URL, "answer: text")

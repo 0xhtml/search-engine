@@ -53,9 +53,9 @@ def _highlight(string: str, query: ParsedQuery) -> markupsafe.Markup:
 def _pretty_url(url: URL) -> markupsafe.Markup:
     return markupsafe.escape(
         url._replace(
-            netloc=idna.decode(url.netloc),
+            host=idna.decode(url.host),
             path=unquote(url.path),
-            query=unquote(url.query)
+            query=unquote(url.query) if url.query is not None else None,
         ).geturl()
     )
 

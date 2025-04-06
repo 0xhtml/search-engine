@@ -223,7 +223,7 @@ def get_engines(search: Search) -> set[Engine]:
         in engine.features
         | (
             EngineFeatures.SITE
-            if search.site == engine.url.netloc.removeprefix("www.")
+            if search.site == engine.url.host.removeprefix("www.")
             else EngineFeatures(0)
         )
     }

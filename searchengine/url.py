@@ -2,7 +2,10 @@
 
 import socket
 from typing import NamedTuple, Optional, Self
-from urllib.parse import urlparse, urlunparse
+from urllib.parse import parse_qs, quote, unquote
+
+import regex
+from rfc3986 import uri_reference
 
 
 def _default_port(scheme: str) -> Optional[int]:
@@ -13,68 +16,75 @@ def _default_port(scheme: str) -> Optional[int]:
 
 
 _COMPARABLE_SCHEMES = {"https": "http"}
+_PATH_REMOVE = regex.compile("/+(?:(?=/)|$)")
 
 
 class URL(NamedTuple):
     """An URL."""
 
     scheme: str
-    netloc: str
+    host: str
     path: str
-    params: str
-    query: str
-    fragment: str
+    query: Optional[str]
+    fragment: Optional[str]
 
     @classmethod
     def parse(cls, url: str) -> Self:
         """Parse URL string into URL object."""
-        parsed = urlparse(url)
-
-        if parsed.port is not None and parsed.port == _default_port(parsed.scheme):
-            netloc = parsed.netloc.removesuffix(f":{parsed.port}")
-            parsed = parsed._replace(netloc=netloc)
-
-        return cls(*parsed)
-
-    @property
-    def host(self) -> str:
-        """Get netloc."""
-        return self.netloc
+        parsed = uri_reference(url).normalize()
+        assert parsed.scheme
+        assert parsed.userinfo is None
+        assert parsed.host
+        assert parsed.port is None or (
+            (default_port := _default_port(parsed.scheme)) is not None
+            and parsed.port == str(default_port)
+        )
+        return cls(
+            parsed.scheme,
+            parsed.host,
+            quote(unquote(parsed.path or "")),
+            parsed.query,
+            parsed.fragment,
+        )
 
     def geturl(self) -> str:
         """Return URL string."""
-        return urlunparse(self)
+        result = f"{self.scheme}://{self.host}{self.path}"
+        if self.query is not None:
+            result += f"?{self.query}"
+        if self.fragment is not None:
+            result += f"#{self.fragment}"
+        return result
 
     def _cmp_scheme(self) -> str:
         return _COMPARABLE_SCHEMES.get(self.scheme, self.scheme)
 
-    def _cmp_netloc(self) -> str:
-        return self.netloc.removeprefix("www.").replace(
-            ".m.wikipedia.org", ".wikipedia.org"
-        )
+    def _cmp_host(self) -> str:
+        host = self.host.removeprefix("www.")
+        if host.endswith(".m.wikipedia.org"):
+            return host.removesuffix(".m.wikipedia.org") + ".wikipedia.org"
+        return host
 
     def _cmp_path(self) -> str:
-        return (
-            self.path.replace("%E2%80%93", "-")
-            if self.netloc.endswith(".wikipedia.org")
-            else self.path
+        return _PATH_REMOVE.sub(
+            "",
+            (
+                self.path.replace("%E2%80%93", "-")
+                if self.host.endswith(".wikipedia.org")
+                else self.path
+            ),
         )
+
+    def _cmp_query(self) -> dict[str, list[str]]:
+        return parse_qs(self.query, keep_blank_values=True)
 
     def __eq__(self, other: object) -> bool:
         """Check if two URLs are equal."""
         if not isinstance(other, self.__class__):
             return NotImplemented
-
-        if self._cmp_scheme() != other._cmp_scheme():
-            return False
-
-        if self._cmp_netloc() != other._cmp_netloc():
-            return False
-
-        if self._cmp_path() != other._cmp_path():
-            return False
-
-        if self.params != other.params:
-            return False
-
-        return self.query == other.query
+        return (
+            self._cmp_scheme() == other._cmp_scheme()
+            and self._cmp_host() == other._cmp_host()
+            and self._cmp_path() == other._cmp_path()
+            and self._cmp_query() == other._cmp_query()
+        )

@@ -113,7 +113,7 @@ class CombinedResult:
         else:
             rating = self.rating * (is_lang(self._text, lang) + 1) / 2
 
-        host = self.result.url.netloc.removeprefix("www.")
+        host = self.result.url.host.removeprefix("www.")
         if host == "reddit.com":
             rating *= 2
         elif host in {"docs.python.org", "stackoverflow.com", "github.com"}:
