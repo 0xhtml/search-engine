@@ -35,6 +35,8 @@ class RatedResult(NamedTuple):
 
     def __lt__(self, other: Self) -> bool:
         """Compare two rated results by rating."""
+        if not isinstance(other, self.__class__):
+            return NotImplemented
         self_answer = isinstance(self.result, AnswerResult)
         other_answer = isinstance(other.result, AnswerResult)
         if self_answer != other_answer:
@@ -133,13 +135,13 @@ class CombinedResult:
 
         return RatedResult(self.result, rating, frozenset(self.engines), snippet)
 
-    def __lt__(self, other: Self) -> bool:
+    def __lt__(self, other: object) -> bool:
         """Compare two combined results by rating."""
-        self_answer = isinstance(self.result, AnswerResult)
-        other_answer = isinstance(other.result, AnswerResult)
-        if self_answer != other_answer:
-            return self_answer < other_answer
-        return self.rating < other.rating
+        if not isinstance(other, self.__class__):
+            return NotImplemented
+        self_rated_result = RatedResult(self.result, self.rating, frozenset(), None)
+        other_rated_result = RatedResult(other.result, other.rating, frozenset(), None)
+        return self_rated_result < other_rated_result
 
 
 def combine_engine_results(
