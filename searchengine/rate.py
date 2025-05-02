@@ -120,7 +120,7 @@ class CombinedResult:
             rating *= 1.5
         elif host.endswith(".wikipedia.org"):
             rating *= 1.25
-        elif host in _SPAM_DOMAINS:
+        elif host.endswith(".fandom.com") or host in _SPAM_DOMAINS:
             rating *= 0.5
 
         if self.task is None:
