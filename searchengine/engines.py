@@ -50,11 +50,6 @@ class EngineResults(NamedTuple):
 _DEFAULT_FEATURES = EngineFeatures(0)
 
 
-def _typed[T](v: object, t: type[T]) -> T:
-    assert isinstance(v, t)
-    return v
-
-
 class Engine:
     """Class for a searx engine."""
 
@@ -68,7 +63,9 @@ class Engine:
         features: EngineFeatures = _DEFAULT_FEATURES,
     ) -> None:
         """Initialize engine."""
-        self._engine = _typed(searx.engines.load_engine(settings), ModuleType)
+        _engine = searx.engines.load_engine(settings)
+        assert isinstance(_engine, ModuleType)
+        self._engine = _engine
 
         if mode is None:
             for _mode in SearchMode:
@@ -89,15 +86,6 @@ class Engine:
         self.features = features
         if self._engine.paging:
             self.features |= EngineFeatures.PAGING
-
-    @property
-    def url(self) -> URL:
-        """Return URL of the engine."""
-        return URL.parse(
-            self._engine.about["website"]
-            if "website" in self._engine.about
-            else self._engine.search_url
-        )
 
     @property
     def language_support(self) -> bool:
@@ -235,11 +223,5 @@ def get_engines(search: Search) -> set[Engine]:
         for engine in ENGINES
         if engine.mode == search.mode
         if engine.supports_language(search.lang)
-        if _required_features(search)
-        in engine.features
-        | (
-            EngineFeatures.SITE
-            if search.site == engine.url.host.removeprefix("www.")
-            else EngineFeatures(0)
-        )
+        if _required_features(search) in engine.features
     }
