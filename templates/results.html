@@ -22,7 +22,7 @@
         </a>
         {% elif r.result_type() == "answer" %}
         <p>{{ r.result.text }}</p>
-        <a href="{{ r.result.url.geturl() }}">{{ r.result.url.netloc }}</a>
+        <a href="{{ r.result.url.geturl() }}">{{ r.result.url.host }}</a>
         {% endif %}
         <small>{{ "{:.1f}".format(r.rating) }} - {{ r.engines | map("string") | sort | join(" ") }}</small>
     </li>
