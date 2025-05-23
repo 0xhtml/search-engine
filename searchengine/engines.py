@@ -1,7 +1,6 @@
 """Module to perform a search."""
 
 from enum import Flag, auto
-from http import HTTPStatus
 from types import ModuleType
 from typing import Optional
 
@@ -38,14 +37,6 @@ def _required_features(search: Search) -> EngineFeatures:
         extensions |= EngineFeatures.SITE
 
     return extensions
-
-
-class StatusCodeError(Exception):
-    """Exception that is raised if a request to an engine doesn't return 2xx."""
-
-    def __init__(self, response: curl_cffi.Response) -> None:
-        """Initialize the exception w/ an Response object."""
-        super().__init__(f"{response.status_code} {response.reason}")
 
 
 _DEFAULT_FEATURES = EngineFeatures(0)
@@ -134,10 +125,7 @@ class Engine:
             data=params["data"],
             cookies=params["cookies"],
         )
-
-        if not HTTPStatus(response.status_code).is_success:
-            raise StatusCodeError(response)
-
+        response.raise_for_status()
         assert response.text
 
         response.url = URL.parse(response.url)

@@ -1,6 +1,5 @@
 """Module to get snippets for search results."""
 
-import http
 from typing import NamedTuple, Optional, Self
 
 import curl_cffi
@@ -26,7 +25,7 @@ class Snippet(NamedTuple):
 
         response = await session.get(url.geturl())
 
-        if not http.HTTPStatus(response.status_code).is_success:
+        if not response.ok:
             return None
 
         dom = lxml.html.fromstring(response.content)

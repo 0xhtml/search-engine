@@ -3,7 +3,6 @@
 import contextlib
 import gettext
 from collections.abc import AsyncIterator, Callable
-from http import HTTPStatus
 from typing import TypedDict
 
 import curl_cffi
@@ -208,7 +207,7 @@ async def img(request: Request) -> Response:
     except curl_cffi.CurlError as e:
         raise HTTPException(500, str(e)) from e
 
-    if not HTTPStatus(resp.status_code).is_success:
+    if not resp.ok:
         raise HTTPException(resp.status_code, resp.reason)
 
     if not resp.headers.get("Content-Type", "").startswith("image/"):
