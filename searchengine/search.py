@@ -8,7 +8,7 @@ import curl_cffi
 
 from .common import Search
 from .engines import Engine, EngineResults, get_engines
-from .metrics import metric_errors, metric_success
+from .metrics import EngineError, metric_errors, metric_success
 from .rate import CombinedResult, RatedResult, combine_engine_results, rate_results
 
 MAX_AGE = 60 * 60 * 24
@@ -24,13 +24,14 @@ async def _engine_search(
 
 
 async def perform_search(
-    session: curl_cffi.AsyncSession, search: Search
-) -> tuple[list[RatedResult], dict[Engine, BaseException]]:
+    session: curl_cffi.AsyncSession,
+    search: Search,
+) -> tuple[list[RatedResult], set[EngineError]]:
     """Perform a search for the given query."""
     engines = get_engines(search)
 
     results: set[CombinedResult] = set()
-    errors: dict[Engine, BaseException] = {}
+    errors: set[EngineError] = set()
 
     tasks = {
         asyncio.create_task(_engine_search(session, engine, search)): engine
@@ -45,7 +46,7 @@ async def perform_search(
             combine_engine_results(session, engine_results, results)
         else:
             traceback.print_exception(exc)
-            errors[engine] = exc
+            errors.add(EngineError(engine, exc))
 
     for task in tasks:
         task.add_done_callback(callback)
@@ -61,7 +62,7 @@ async def perform_search(
         if not task.done():
             task.remove_done_callback(callback)
             task.cancel()
-            errors[engine] = TimeoutError()
+            errors.add(EngineError(engine, TimeoutError()))
 
     metric_errors(errors)
 
