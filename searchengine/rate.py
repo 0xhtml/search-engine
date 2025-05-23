@@ -7,7 +7,7 @@ from typing import NamedTuple, Optional, Self
 import curl_cffi
 import regex
 
-from .engines import Engine
+from .engines import Engine, EngineResults
 from .lang import is_lang
 from .results import AnswerResult, ImageResult, Result, WebResult
 from .snippet import Snippet
@@ -146,19 +146,18 @@ class CombinedResult:
 
 def combine_engine_results(
     session: curl_cffi.AsyncSession,
-    engine: Engine,
-    results: list[Result],
+    engine_results: EngineResults,
     combined_results: set[CombinedResult],
 ) -> None:
     """Combine results from a single engine into combined_results."""
-    for i, result in enumerate(results):
+    for i, result in enumerate(engine_results.results):
         rating = (1.25**-i) * 10
         for combined_result in combined_results:
             if combined_result.result == result:
-                combined_result.update(result, rating, engine)
+                combined_result.update(result, rating, engine_results.engine)
                 break
         else:
-            combined_results.add(CombinedResult(result, rating, engine))
+            combined_results.add(CombinedResult(result, rating, engine_results.engine))
 
     for combined_result in heapq.nlargest(12, combined_results):
         combined_result.start_loading_snippet(session)

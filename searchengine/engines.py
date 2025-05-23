@@ -2,7 +2,7 @@
 
 from enum import Flag, auto
 from types import ModuleType
-from typing import Optional
+from typing import NamedTuple, Optional
 
 import curl_cffi
 import searx
@@ -37,6 +37,14 @@ def _required_features(search: Search) -> EngineFeatures:
         extensions |= EngineFeatures.SITE
 
     return extensions
+
+
+class EngineResults(NamedTuple):
+    """Class to hold the results of a search w/ additional metadata."""
+
+    engine: "Engine"
+    results: list[Result]
+    elapsed: float
 
 
 _DEFAULT_FEATURES = EngineFeatures(0)
@@ -100,8 +108,10 @@ class Engine:
         return self._engine.traits.is_locale_supported(language)
 
     async def search(
-        self, session: curl_cffi.AsyncSession, search: Search
-    ) -> list[Result]:
+        self,
+        session: curl_cffi.AsyncSession,
+        search: Search,
+    ) -> EngineResults:
         """Perform a search and return the results."""
         params = self._engine.request(  # type: ignore[attr-defined]
             search.query_string(),
@@ -138,7 +148,7 @@ class Engine:
             if parsed_result is not None:
                 results.append(parsed_result)
 
-        return results
+        return EngineResults(self, results, response.elapsed)
 
     @property
     def name(self) -> str:

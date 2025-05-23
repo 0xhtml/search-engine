@@ -3,7 +3,7 @@
 import contextlib
 import sqlite3
 
-from .engines import Engine
+from .engines import Engine, EngineResults
 from .templates import _pretty_exc
 
 
@@ -25,13 +25,17 @@ def _create_tables(con: sqlite3.Connection) -> None:
     """)
 
 
-def metric_success(engine: Engine, result_count: int, time: float) -> None:
+def metric_success(engine_results: EngineResults) -> None:
     """Store success metrics in database."""
     with contextlib.closing(sqlite3.connect("metrics.db")) as con, con:
         _create_tables(con)
         con.execute(
             "INSERT INTO success (engine, result_count, time) VALUES (?, ?, ?)",
-            (str(engine), result_count, time),
+            (
+                str(engine_results.engine),
+                len(engine_results.results),
+                engine_results.elapsed,
+            ),
         )
 
 

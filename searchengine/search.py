@@ -7,22 +7,20 @@ import aiocache
 import curl_cffi
 
 from .common import Search
-from .engines import Engine, get_engines
+from .engines import Engine, EngineResults, get_engines
 from .metrics import metric_errors, metric_success
-from .rate import RatedResult, rate_results, CombinedResult, combine_engine_results
-from .results import Result
+from .rate import CombinedResult, RatedResult, combine_engine_results, rate_results
 
 MAX_AGE = 60 * 60 * 24
 
 
 @aiocache.cached(noself=True, ttl=MAX_AGE)
 async def _engine_search(
-    session: curl_cffi.AsyncSession, engine: Engine, search: Search
-) -> tuple[list[Result], float]:
-    loop = asyncio.get_running_loop()
-    start = loop.time()
-    results = await engine.search(session, search)
-    return results, loop.time() - start
+    session: curl_cffi.AsyncSession,
+    engine: Engine,
+    search: Search,
+) -> EngineResults:
+    return await engine.search(session, search)
 
 
 async def perform_search(
@@ -42,9 +40,9 @@ async def perform_search(
     def callback(task: asyncio.Task) -> None:
         engine = tasks[task]
         if (exc := task.exception()) is None:
-            engine_results, time = task.result()
-            metric_success(engine, len(engine_results), time)
-            combine_engine_results(session, engine, engine_results, results)
+            engine_results = task.result()
+            metric_success(engine_results)
+            combine_engine_results(session, engine_results, results)
         else:
             traceback.print_exception(exc)
             errors[engine] = exc
@@ -55,7 +53,7 @@ async def perform_search(
     prio_tasks = {task for task, engine in tasks.items() if engine.weight > 1}
     await asyncio.wait(prio_tasks)
     completed = {task for task in prio_tasks if task.exception() is None}
-    max_time = max(task.result()[1] for task in completed) if completed else 0
+    max_time = max(task.result().elapsed for task in completed) if completed else 0
 
     await asyncio.wait(tasks.keys(), timeout=max(max_time * 0.5, 1 - max_time))
 
