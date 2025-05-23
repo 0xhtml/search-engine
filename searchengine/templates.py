@@ -1,6 +1,5 @@
 """Module containing filter functions for the templates."""
 
-import traceback
 from typing import Any
 from urllib.parse import unquote, urlencode
 
@@ -9,7 +8,7 @@ import jinja2
 import markupsafe
 from starlette.templating import Jinja2Templates
 
-from .common import SearchMode
+from .common import SearchMode, pretty_exc
 from .engines import ENGINES, EngineFeatures
 from .query import ParsedQuery
 from .sha import gen_sha
@@ -69,10 +68,6 @@ def _proxy(ctx: dict[str, Any], url: URL) -> str:
     )
 
 
-def _pretty_exc(exc: BaseException) -> str:
-    return traceback.format_exception_only(exc)[0]
-
-
 def _checkmark(value: bool) -> str:
     return "✅" if value else "❌"
 
@@ -92,9 +87,9 @@ _ENV.filters.update(
         "highlight": _highlight,
         "pretty_url": _pretty_url,
         "proxy": _proxy,
-        "pretty_exc": _pretty_exc,
+        "pretty_exc": pretty_exc,
         "checkmark": _checkmark,
-    }
+    },
 )
 
 TEMPLATES = Jinja2Templates(env=_ENV)

@@ -4,7 +4,7 @@ import contextlib
 import sqlite3
 
 from .engines import Engine, EngineResults
-from .templates import _pretty_exc
+from .templates import pretty_exc
 
 
 def _create_tables(con: sqlite3.Connection) -> None:
@@ -45,5 +45,5 @@ def metric_errors(errors: dict[Engine, BaseException]) -> None:
         _create_tables(con)
         con.executemany(
             "INSERT INTO error (engine, error) VALUES (?, ?)",
-            [(str(engine), _pretty_exc(exc)) for engine, exc in errors.items()],
+            [(str(engine), pretty_exc(exc)) for engine, exc in errors.items()],
         )

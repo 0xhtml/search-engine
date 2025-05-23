@@ -1,5 +1,6 @@
 """Module containing common types."""
 
+import traceback
 from enum import Enum
 from typing import NamedTuple, Optional
 
@@ -49,3 +50,8 @@ class Search(NamedTuple):
             query += f"site:{self.site} "
 
         return query[:-1]
+
+
+def pretty_exc(exc: BaseException) -> str:
+    """Return a pretty string for an exception."""
+    return traceback.format_exception_only(exc)[0]
