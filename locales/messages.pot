@@ -76,6 +76,10 @@ msgid "Features"
 msgstr ""
 
 #: templates/engines.html:10
+msgid "Page size"
+msgstr ""
+
+#: templates/engines.html:11
 msgid "Language support"
 msgstr ""
 

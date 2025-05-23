@@ -63,6 +63,7 @@ class Engine:
         settings: dict,
         *,
         mode: Optional[SearchMode] = None,
+        page_size: Optional[int] = None,
         weight: float = 1.0,
         features: EngineFeatures = _DEFAULT_FEATURES,
     ) -> None:
@@ -80,6 +81,8 @@ class Engine:
         else:
             self.mode = mode
             self._engine.search_type = mode.value  # type: ignore[attr-defined]
+
+        self.page_size = self._engine.page_size if page_size is None else page_size
 
         self.weight = weight
 
@@ -170,17 +173,24 @@ def _find_engine(name: str) -> dict:
 
 _YEP = _find_engine("yep")
 ENGINES = {
-    Engine(_find_engine("alexandria"), features=EngineFeatures.SITE),
-    Engine(_find_engine("bing"), weight=1.5),
+    Engine(_find_engine("alexandria"), page_size=10, features=EngineFeatures.SITE),
+    Engine(_find_engine("bing"), page_size=10, weight=1.5),
     Engine(
         _find_engine("google"),
+        page_size=10,
         weight=1.5,
         features=EngineFeatures.QUOTES | EngineFeatures.SITE,
     ),
-    Engine(_find_engine("mojeek"), weight=1.5, features=EngineFeatures.SITE),
+    Engine(
+        _find_engine("mojeek"),
+        page_size=10,
+        weight=1.5,
+        features=EngineFeatures.SITE,
+    ),
     Engine(_find_engine("reddit"), weight=0.25, mode=SearchMode.WEB),
     Engine(
-        _find_engine("right dao"), features=EngineFeatures.QUOTES | EngineFeatures.SITE
+        _find_engine("right dao"),
+        features=EngineFeatures.QUOTES | EngineFeatures.SITE,
     ),
     Engine(
         {
@@ -192,18 +202,26 @@ ENGINES = {
             "title_query": "信息/标题",
             "content_query": "信息/描述",
         },
+        page_size=12,
         features=EngineFeatures.SITE,
     ),
     Engine(
         _find_engine("stract"),
+        page_size=20,
         features=EngineFeatures.QUOTES | EngineFeatures.SITE,
     ),
-    Engine(_YEP, features=EngineFeatures.SITE),
-    Engine(_find_engine("google scholar"), weight=1.5),
-    Engine(_find_engine("bing images"), weight=1.5, features=EngineFeatures.SITE),
-    Engine(_YEP, mode=SearchMode.IMAGES, features=EngineFeatures.SITE),
+    Engine(_YEP, page_size=20, features=EngineFeatures.SITE),
+    Engine(_find_engine("google scholar"), page_size=10, weight=1.5),
+    Engine(
+        _find_engine("bing images"),
+        page_size=35,
+        weight=1.5,
+        features=EngineFeatures.SITE,
+    ),
+    Engine(_YEP, page_size=60, mode=SearchMode.IMAGES, features=EngineFeatures.SITE),
     Engine(
         _find_engine("google images"),
+        page_size=100,
         weight=1.5,
         features=EngineFeatures.QUOTES | EngineFeatures.SITE,
     ),
