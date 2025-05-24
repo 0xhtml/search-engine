@@ -43,7 +43,7 @@
 <div class="error">
     <h4>{{ _("Error") }}</h4>
     <ul>
-        {% for engine, error in engine_errors %}
+        {% for engine, error in engine_errors.items() %}
         <li>{{ engine }}: {{ error | pretty_exc }}</li>
         {% endfor %}
     </ul>

@@ -1,15 +1,23 @@
 """Module containing functions to perform a search."""
 
 import asyncio
+import math
 import traceback
+from collections import defaultdict
 
 import aiocache
 import curl_cffi
 
 from .common import Search
-from .engines import Engine, EngineResults, get_engines
-from .metrics import EngineError, metric_errors, metric_success
-from .rate import CombinedResult, RatedResult, combine_engine_results, rate_results
+from .engines import Engine, EngineFeatures, EngineResults, get_engines
+from .metrics import metric_errors, metric_success
+from .rate import (
+    PAGE_SIZE,
+    CombinedResult,
+    RatedResult,
+    combine_engine_results,
+    rate_results,
+)
 
 MAX_AGE = 60 * 60 * 24
 
@@ -23,49 +31,96 @@ async def _engine_search(
     return await engine.search(session, search)
 
 
+def _max_page(engine: Engine, search: Search) -> int:
+    if EngineFeatures.PAGING not in engine.features:
+        return 1
+    return math.ceil(PAGE_SIZE * search.page / engine.page_size)
+
+
 async def perform_search(
     session: curl_cffi.AsyncSession,
     search: Search,
-) -> tuple[list[RatedResult], set[EngineError]]:
+) -> tuple[list[RatedResult], dict[Engine, BaseException]]:
     """Perform a search for the given query."""
     engines = get_engines(search)
 
     results: set[CombinedResult] = set()
-    errors: set[EngineError] = set()
+    errors: dict[Engine, BaseException] = {}
 
     tasks = {
-        asyncio.create_task(_engine_search(session, engine, search)): engine
+        engine: [
+            asyncio.create_task(
+                _engine_search(session, engine, search._replace(page=page + 1)),
+            )
+            for page in range(_max_page(engine, search))
+        ]
         for engine in engines
     }
 
+    def lookup_task(task: asyncio.Task) -> tuple[Engine, list[asyncio.Task]]:
+        for engine, engine_tasks in tasks.items():
+            if task in engine_tasks:
+                return engine, engine_tasks
+        raise RuntimeError
+
+    def find_cut_off(engine_tasks: list[asyncio.Task]) -> int:
+        for i, task in enumerate(engine_tasks):
+            if task.cancelled() or not task.done() or task.exception() is not None:
+                return i
+        return len(engine_tasks)
+
     def callback(task: asyncio.Task) -> None:
-        engine = tasks[task]
-        if (exc := task.exception()) is None:
-            engine_results = task.result()
-            metric_success(engine_results)
-            combine_engine_results(session, engine_results, results)
-        else:
-            traceback.print_exception(exc)
-            errors.add(EngineError(engine, exc))
+        engine, engine_tasks = lookup_task(task)
 
-    for task in tasks:
-        task.add_done_callback(callback)
+        if not task.cancelled():
+            if (exc := task.exception()) is None:
+                metric_success(engine, task.result())
+            else:
+                traceback.print_exception(exc)
+                errors[engine] = exc
+                for t in engine_tasks[engine_tasks.index(task) :]:
+                    if not t.done():
+                        t.cancel()
 
-    prio_tasks = {task for task, engine in tasks.items() if engine.weight > 1}
+        cut_off = find_cut_off(engine_tasks)
+        if all(t.done() for t in engine_tasks[cut_off:]):
+            combine_engine_results(
+                session,
+                engine,
+                [r for t in engine_tasks[:cut_off] for r in t.result().results],
+                search.page,
+                results,
+            )
+            for t in engine_tasks:
+                t.remove_done_callback(callback)
+
+    for engine_tasks in tasks.values():
+        for task in engine_tasks:
+            task.add_done_callback(callback)
+
+    prio_tasks = {
+        task
+        for engine, engine_tasks in tasks.items()
+        for task in engine_tasks
+        if engine.weight > 1
+    }
     await asyncio.wait(prio_tasks)
     completed = {task for task in prio_tasks if task.exception() is None}
     max_time = max(task.result().elapsed for task in completed) if completed else 0
+    await asyncio.wait(
+        {task for engine_tasks in tasks.values() for task in engine_tasks},
+        timeout=max(max_time * 0.5, 1 - max_time),
+    )
 
-    await asyncio.wait(tasks.keys(), timeout=max(max_time * 0.5, 1 - max_time))
-
-    for task, engine in tasks.items():
-        if not task.done():
-            task.remove_done_callback(callback)
-            task.cancel()
-            errors.add(EngineError(engine, TimeoutError()))
+    for engine, engine_tasks in tasks.items():
+        for task in engine_tasks:
+            if not task.done():
+                task.cancel()
+                if engine not in errors:
+                    errors[engine] = TimeoutError()
 
     metric_errors(errors)
 
-    rated_results = rate_results(results, search.lang)
+    rated_results = rate_results(results, search)
 
     return rated_results, errors

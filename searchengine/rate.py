@@ -7,10 +7,13 @@ from typing import NamedTuple, Optional, Self
 import curl_cffi
 import regex
 
-from .engines import Engine, EngineResults
+from .common import Search
+from .engines import Engine
 from .lang import is_lang
 from .results import AnswerResult, ImageResult, Result, WebResult
 from .snippet import Snippet
+
+PAGE_SIZE = 12
 
 with open("domains.txt") as file:
     _SPAM_DOMAINS = set(file)
@@ -144,26 +147,32 @@ class CombinedResult:
         return self_rated_result < other_rated_result
 
 
+def _slice_page[T](results: set[T], page: int) -> list[T]:
+    return heapq.nlargest(PAGE_SIZE * page, results)[PAGE_SIZE * (page - 1) :]
+
+
 def combine_engine_results(
     session: curl_cffi.AsyncSession,
-    engine_results: EngineResults,
+    engine: Engine,
+    engine_results: list[Result],
+    page: int,
     combined_results: set[CombinedResult],
 ) -> None:
     """Combine results from a single engine into combined_results."""
-    for i, result in enumerate(engine_results.results):
+    for i, result in enumerate(engine_results):
         rating = (1.25**-i) * 10
         for combined_result in combined_results:
             if combined_result.result == result:
-                combined_result.update(result, rating, engine_results.engine)
+                combined_result.update(result, rating, engine)
                 break
         else:
-            combined_results.add(CombinedResult(result, rating, engine_results.engine))
+            combined_results.add(CombinedResult(result, rating, engine))
 
-    for combined_result in heapq.nlargest(12, combined_results):
+    for combined_result in _slice_page(combined_results, page):
         combined_result.start_loading_snippet(session)
 
 
-def rate_results(results: set[CombinedResult], lang: str) -> list[RatedResult]:
+def rate_results(results: set[CombinedResult], search: Search) -> list[RatedResult]:
     """Combine results from all engines and rate them."""
-    rated_results = {result.eval(lang) for result in results}
-    return heapq.nlargest(12, rated_results)
+    rated_results = {result.eval(search.lang) for result in results}
+    return _slice_page(rated_results, search.page)

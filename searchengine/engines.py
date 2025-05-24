@@ -27,9 +27,6 @@ class EngineFeatures(Flag):
 def _required_features(search: Search) -> EngineFeatures:
     extensions = EngineFeatures(0)
 
-    if search.page != 1:
-        extensions |= EngineFeatures.PAGING
-
     if any(" " in word for word in search.words):
         extensions |= EngineFeatures.QUOTES
 
@@ -42,7 +39,6 @@ def _required_features(search: Search) -> EngineFeatures:
 class EngineResults(NamedTuple):
     """Class to hold the results of a search w/ additional metadata."""
 
-    engine: "Engine"
     results: list[Result]
     elapsed: float
 
@@ -139,7 +135,7 @@ class Engine:
             if parsed_result is not None:
                 results.append(parsed_result)
 
-        return EngineResults(self, results, response.elapsed)
+        return EngineResults(results, response.elapsed)
 
     @property
     def name(self) -> str:
