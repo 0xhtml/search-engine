@@ -105,7 +105,9 @@ async def perform_search(
         if engine.weight > 1
     }
     await asyncio.wait(prio_tasks)
-    completed = {task for task in prio_tasks if task.exception() is None}
+    completed = {
+        task for task in prio_tasks if not task.cancelled() and task.exception() is None
+    }
     max_time = max(task.result().elapsed for task in completed) if completed else 0
     await asyncio.wait(
         {task for engine_tasks in tasks.values() for task in engine_tasks},
