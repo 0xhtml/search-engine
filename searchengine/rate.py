@@ -16,7 +16,7 @@ from .snippet import Snippet
 PAGE_SIZE = 12
 
 with open("domains.txt") as file:
-    _SPAM_DOMAINS = set(file)
+    _SPAM_DOMAINS = set(file) | {"w3schools.com"}
 
 
 class RatedResult(NamedTuple):
