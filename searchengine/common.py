@@ -12,15 +12,17 @@ class SearchMode(Enum):
     IMAGES = "images"
     SCHOLAR = "scholar"
 
-    def searx_category(self) -> str:
-        """Convert search mode to searx category."""
-        if self == SearchMode.WEB:
-            return "general"
-        if self == SearchMode.IMAGES:
-            return "images"
-        if self == SearchMode.SCHOLAR:
-            return "science"
-        raise ValueError
+    @classmethod
+    def from_searx_category(cls, categories: list[str]) -> "SearchMode":
+        """Convert searx category to search mode."""
+        if "general" in categories:
+            return cls.WEB
+        if "images" in categories:
+            return cls.IMAGES
+        if "science" in categories:
+            return cls.SCHOLAR
+        msg = f"Unknown searx category: {categories}"
+        raise ValueError(msg)
 
     def __str__(self) -> str:
         """Return capitalized value."""

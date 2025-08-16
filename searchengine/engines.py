@@ -2,7 +2,7 @@
 
 from enum import Flag, auto
 from types import ModuleType
-from typing import NamedTuple, Optional
+from typing import NamedTuple, Optional, cast
 
 import curl_cffi
 import searx
@@ -59,21 +59,16 @@ class Engine:
         features: EngineFeatures = _DEFAULT_FEATURES,
     ) -> None:
         """Initialize engine."""
-        _engine = searx.engines.load_engine(settings)
-        assert isinstance(_engine, ModuleType)
-        self._engine = _engine
+        self._engine = cast("ModuleType", searx.engines.load_engine(settings))
+        assert isinstance(self._engine, ModuleType)
 
-        if mode is None:
-            for _mode in SearchMode:
-                if _mode.searx_category() in self._engine.categories:
-                    self.mode = _mode
-                    break
-            else:
-                msg = f"Failed to detect mode for {self._engine.name}"
-                raise ValueError(msg)
-        else:
-            self.mode = mode
-            self._engine.search_type = mode.value  # type: ignore[attr-defined]
+        self.mode = (
+            SearchMode.from_searx_category(self._engine.categories)
+            if mode is None
+            else mode
+        )
+        if self.mode == SearchMode.IMAGES:
+            self._engine.search_type = self.mode.value  # type: ignore[attr-defined]
 
         self.page_size = self._engine.page_size if page_size is None else page_size
 
